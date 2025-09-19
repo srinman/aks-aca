@@ -1,147 +1,234 @@
 # Networking Models Comparison: AKS vs Azure Container Apps
 
-This document compares the networking architectures, capabilities, and configuration options between Azure Kubernetes Service (AKS) and Azure Container Apps (ACA).
+This document compares the networking architectures, capabilities, and configuration options between Azure Kubernetes Service (AKS) and Azure Container Apps (ACA), focusing on the flexibility and management approaches of each platform.
 
 ## Overview
 
-Networking approaches differ significantly between AKS and Azure Container Apps, with AKS providing full control over networking configuration while Azure Container Apps offers a simplified, managed networking experience.
+Networking approaches differ significantly between AKS and Azure Container Apps. AKS provides extensive networking customization options with multiple CNI choices and advanced configurations, while Azure Container Apps offers a simplified, fully managed networking experience with limited but sufficient options for most use cases.
 
 ## Azure Kubernetes Service (AKS) Networking
 
-### Network Plugin Options
+AKS provides several comprehensive options to manage pod networking, ingress, service mesh, and network segmentation with extensive customization possibilities.
 
-**Azure CNI (Container Network Interface)**
-```bash
-# Create AKS cluster with Azure CNI
-az aks create \
-  --name myAKSCluster \
-  --resource-group myResourceGroup \
-  --network-plugin azure \
-  --vnet-subnet-id /subscriptions/.../subnets/aks-subnet \
-  --service-cidr 10.2.0.0/24 \
-  --dns-service-ip 10.2.0.10
+### Pod Networking Management Options
+
+**Azure CNI with Direct Pod Connectivity**
+```json
+{
+  "type": "Microsoft.ContainerService/managedClusters",
+  "properties": {
+    "networkProfile": {
+      "networkPlugin": "azure",
+      "networkPluginMode": "overlay",
+      "podCidr": "10.244.0.0/16",
+      "serviceCidr": "10.2.0.0/24",
+      "dnsServiceIP": "10.2.0.10",
+      "loadBalancerSku": "standard"
+    },
+    "agentPoolProfiles": [{
+      "vnetSubnetID": "/subscriptions/{sub}/resourceGroups/{rg}/providers/Microsoft.Network/virtualNetworks/{vnet}/subnets/{subnet}",
+      "podSubnetID": "/subscriptions/{sub}/resourceGroups/{rg}/providers/Microsoft.Network/virtualNetworks/{vnet}/subnets/{pod-subnet}"
+    }]
+  }
+}
 ```
 
-**Kubenet**
-```bash
-# Create AKS cluster with Kubenet
-az aks create \
-  --name myAKSCluster \
-  --resource-group myResourceGroup \
-  --network-plugin kubenet \
-  --pod-cidr 10.244.0.0/16 \
-  --service-cidr 10.2.0.0/24
+**Kubenet with Route Table Management**
+```json
+{
+  "networkProfile": {
+    "networkPlugin": "kubenet",
+    "podCidr": "10.244.0.0/16",
+    "serviceCidr": "10.2.0.0/24",
+    "dnsServiceIP": "10.2.0.10"
+  }
+}
 ```
 
-**Azure CNI Overlay**
-- Combines Azure CNI with overlay networking
-- Reduces IP address consumption
-- Supports larger clusters
+**Azure CNI Overlay for IP Conservation**
+```json
+{
+  "networkProfile": {
+    "networkPlugin": "azure",
+    "networkPluginMode": "overlay",
+    "ebpfDataplane": "cilium"
+  }
+}
+```
 
-### Ingress and Load Balancing
+**Bring Your Own CNI (BYOCNI)**
+```json
+{
+  "networkProfile": {
+    "networkPlugin": "none"
+  }
+}
+```
+
+### Managing Multiple Ingress Controllers
 
 **Application Gateway Ingress Controller (AGIC)**
-```yaml
-apiVersion: networking.k8s.io/v1
-kind: Ingress
-metadata:
-  name: web-app-ingress
-  annotations:
-    kubernetes.io/ingress.class: azure/application-gateway
-    appgw.ingress.kubernetes.io/ssl-redirect: "true"
-spec:
-  tls:
-  - hosts:
-    - myapp.example.com
-    secretName: tls-secret
-  rules:
-  - host: myapp.example.com
-    http:
-      paths:
-      - path: /
-        pathType: Prefix
-        backend:
-          service:
-            name: web-app-service
-            port:
-              number: 80
+```json
+{
+  "addonProfiles": {
+    "ingressApplicationGateway": {
+      "enabled": true,
+      "config": {
+        "applicationGatewayId": "/subscriptions/{sub}/resourceGroups/{rg}/providers/Microsoft.Network/applicationGateways/{agw}",
+        "effectiveApplicationGatewayId": "/subscriptions/{sub}/resourceGroups/{rg}/providers/Microsoft.Network/applicationGateways/{agw}"
+      }
+    }
+  }
+}
 ```
 
-**NGINX Ingress Controller**
+**NGINX Ingress Controller Installation**
+```bash
+# Install NGINX Ingress using Helm
+helm upgrade --install ingress-nginx ingress-nginx \
+  --repo https://kubernetes.github.io/ingress-nginx \
+  --namespace ingress-nginx \
+  --create-namespace \
+  --set controller.service.type=LoadBalancer \
+  --set controller.service.loadBalancerIP=203.0.113.10
+```
+
+**Multiple Ingress Controllers Configuration**
 ```yaml
+# Primary NGINX Ingress
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: web-app-ingress
+  name: web-app-nginx
   annotations:
     kubernetes.io/ingress.class: "nginx"
-    nginx.ingress.kubernetes.io/rewrite-target: /
 spec:
   rules:
-  - host: myapp.example.com
+  - host: web.example.com
     http:
       paths:
       - path: /
         pathType: Prefix
         backend:
           service:
-            name: web-app-service
+            name: web-service
             port:
               number: 80
-```
-
-**Azure Load Balancer**
-```yaml
-apiVersion: v1
-kind: Service
+---
+# Secondary Application Gateway Ingress
+apiVersion: networking.k8s.io/v1
+kind: Ingress
 metadata:
-  name: web-app-lb
+  name: api-app-agic
   annotations:
-    service.beta.kubernetes.io/azure-load-balancer-internal: "true"
+    kubernetes.io/ingress.class: "azure/application-gateway"
 spec:
-  type: LoadBalancer
-  selector:
-    app: web-app
-  ports:
-  - port: 80
-    targetPort: 8080
+  rules:
+  - host: api.example.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: api-service
+            port:
+              number: 8080
 ```
 
-### Network Security
+### Deploying Managed Service Mesh (Istio)
 
-**Network Security Groups (NSGs)**
-- Subnet-level traffic filtering
-- Source/destination IP and port rules
-- Integration with Azure Firewall
+**Istio Service Mesh Add-on Configuration**
+```json
+{
+  "serviceMeshProfile": {
+    "mode": "Istio",
+    "istio": {
+      "components": {
+        "ingressGateways": [
+          {
+            "name": "aks-istio-ingressgateway-external",
+            "mode": "External",
+            "enabled": true
+          }
+        ]
+      },
+      "certificateAuthority": {
+        "plugin": {
+          "keyVaultId": "/subscriptions/{sub}/resourceGroups/{rg}/providers/Microsoft.KeyVault/vaults/{vault}"
+        }
+      }
+    }
+  }
+}
+```
 
-**Network Policies**
+**Istio Configuration for Traffic Management**
 ```yaml
-# Calico Network Policy
-apiVersion: projectcalico.org/v3
-kind: NetworkPolicy
+# Istio Gateway
+apiVersion: networking.istio.io/v1beta1
+kind: Gateway
 metadata:
-  name: deny-all
+  name: bookinfo-gateway
 spec:
-  selector: all()
-  ingress:
-  - action: Deny
-  egress:
-  - action: Deny
+  selector:
+    istio: ingressgateway
+  servers:
+  - port:
+      number: 80
+      name: http
+      protocol: HTTP
+    hosts:
+    - bookinfo.example.com
+---
+# Virtual Service for Traffic Routing
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: bookinfo
+spec:
+  hosts:
+  - bookinfo.example.com
+  gateways:
+  - bookinfo-gateway
+  http:
+  - match:
+    - uri:
+        exact: /productpage
+    route:
+    - destination:
+        host: productpage
+        port:
+          number: 9080
 ```
 
-**Azure Network Policy Manager**
+### Workload Segmentation with Network Policies and Istio
+
+**Kubernetes Network Policies**
 ```yaml
+# Deny all ingress by default
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: web-app-netpol
+  name: default-deny-ingress
+  namespace: production
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+---
+# Allow frontend to backend communication
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-frontend-to-backend
+  namespace: production
 spec:
   podSelector:
     matchLabels:
-      app: web-app
+      app: backend
   policyTypes:
   - Ingress
-  - Egress
   ingress:
   - from:
     - podSelector:
@@ -152,193 +239,322 @@ spec:
       port: 8080
 ```
 
-### Private Cluster Configuration
-
-**Private AKS Cluster**
-```bash
-az aks create \
-  --name myPrivateCluster \
-  --resource-group myResourceGroup \
-  --enable-private-cluster \
-  --private-dns-zone system \
-  --network-plugin azure
+**Istio Authorization Policies**
+```yaml
+# Istio Authorization Policy
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: backend-policy
+  namespace: production
+spec:
+  selector:
+    matchLabels:
+      app: backend
+  rules:
+  - from:
+    - source:
+        principals: ["cluster.local/ns/production/sa/frontend"]
+  - to:
+    - operation:
+        methods: ["GET", "POST"]
 ```
 
-### Advanced Networking Features
+### Advanced Networking Capabilities
 
-**Virtual Nodes (ACI Integration)**
-- Serverless pod execution
-- Rapid scaling capabilities
-- Cross-region connectivity
+**Adding New Subnets for Node Pools**
+```json
+{
+  "agentPoolProfiles": [
+    {
+      "name": "nodepool1",
+      "vnetSubnetID": "/subscriptions/{sub}/resourceGroups/{rg}/providers/Microsoft.Network/virtualNetworks/{vnet}/subnets/{subnet1}"
+    },
+    {
+      "name": "nodepool2", 
+      "vnetSubnetID": "/subscriptions/{sub}/resourceGroups/{rg}/providers/Microsoft.Network/virtualNetworks/{vnet}/subnets/{subnet2}"
+    }
+  ]
+}
+```
 
-**Istio Service Mesh**
-- Advanced traffic management
-- Security policies
-- Observability features
+**User Defined Routes (UDR) Support**
+```json
+{
+  "networkProfile": {
+    "outboundType": "userDefinedRouting"
+  }
+}
+```
+
+**Custom Network Security Groups (NSG)**
+```bash
+# Create custom NSG rules
+az network nsg rule create \
+  --resource-group myResourceGroup \
+  --nsg-name aks-nsg \
+  --name allow-https \
+  --protocol tcp \
+  --priority 1000 \
+  --destination-port-range 443 \
+  --access allow
+```
+
+**Direct Pod Connectivity with Azure CNI**
+```json
+{
+  "networkProfile": {
+    "networkPlugin": "azure",
+    "podCidr": null,
+    "serviceCidr": "10.2.0.0/24"
+  }
+}
+```
+
+### CNCF Project Customizations
+
+**Installing Additional CNCF Projects**
+```bash
+# Install Cilium for advanced networking
+helm install cilium cilium/cilium \
+  --namespace kube-system \
+  --set eni.enabled=true \
+  --set ipam.mode=eni
+
+# Install Calico for network policies
+kubectl apply -f https://raw.githubusercontent.com/projectcalico/calico/v3.26.1/manifests/calico.yaml
+
+# Install Linkerd service mesh
+curl --proto '=https' --tlsv1.2 -sSfL https://run.linkerd.io/install | sh
+linkerd install | kubectl apply -f -
+```
+
+**Custom CNI Configuration**
+```yaml
+# Custom CNI DaemonSet
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: custom-cni
+  namespace: kube-system
+spec:
+  selector:
+    matchLabels:
+      name: custom-cni
+  template:
+    spec:
+      hostNetwork: true
+      containers:
+      - name: cni-installer
+        image: custom-cni:latest
+        securityContext:
+          privileged: true
+        volumeMounts:
+        - name: cni-bin-dir
+          mountPath: /host/opt/cni/bin
+        - name: cni-net-dir
+          mountPath: /host/etc/cni/net.d
+```
+
+*Note: Custom CNCF projects and configurations may not be supported by Microsoft if they are not official add-ons or extensions. Use at your own risk for production workloads.*
 
 ## Azure Container Apps Networking
 
-### Environment Networking
+Azure Container Apps provides limited but fully managed networking options that cover most common use cases without requiring detailed networking expertise.
 
-**Default Networking**
-```bash
-# Create Container Apps environment with default networking
-az containerapp env create \
-  --name myContainerAppEnv \
-  --resource-group myResourceGroup \
-  --location eastus
+### Fully Managed Ingress
+
+**Basic Environment with Managed Ingress**
+```json
+{
+  "type": "Microsoft.App/managedEnvironments",
+  "properties": {
+    "vnetConfiguration": {
+      "internal": false,
+      "infrastructureSubnetId": "/subscriptions/{sub}/resourceGroups/{rg}/providers/Microsoft.Network/virtualNetworks/{vnet}/subnets/{subnet}"
+    }
+  }
+}
 ```
 
-**Custom VNet Integration**
-```bash
-# Create environment with custom VNet
-az containerapp env create \
-  --name myContainerAppEnv \
-  --resource-group myResourceGroup \
-  --location eastus \
-  --infrastructure-subnet-resource-id /subscriptions/.../subnets/containerapp-subnet \
-  --internal-only
+**Container App with External Ingress**
+```json
+{
+  "type": "Microsoft.App/containerApps",
+  "properties": {
+    "configuration": {
+      "ingress": {
+        "external": true,
+        "targetPort": 80,
+        "allowInsecure": false,
+        "transport": "http"
+      }
+    }
+  }
+}
 ```
 
-### Ingress Configuration
+### TLS Certificate Management
 
-**External Ingress**
-```bash
-az containerapp create \
-  --name my-app \
-  --resource-group myResourceGroup \
-  --environment myContainerAppEnv \
-  --image nginx \
-  --ingress external \
-  --target-port 80
+**Custom Domain with Certificate**
+```json
+{
+  "type": "Microsoft.App/managedEnvironments/certificates",
+  "properties": {
+    "certificateType": "ServerSSLCertificate",
+    "certificateKeyVaultProperties": {
+      "keyVaultUrl": "https://myvault.vault.azure.net/",
+      "secretName": "ssl-cert",
+      "identity": "/subscriptions/{sub}/resourceGroups/{rg}/providers/Microsoft.ManagedIdentity/userAssignedIdentities/{identity}"
+    }
+  }
+}
 ```
 
-**Internal Ingress**
-```bash
-az containerapp create \
-  --name my-app \
-  --resource-group myResourceGroup \
-  --environment myContainerAppEnv \
-  --image nginx \
-  --ingress internal \
-  --target-port 80
+**Binding Certificate to Container App**
+```json
+{
+  "configuration": {
+    "ingress": {
+      "customDomains": [
+        {
+          "name": "myapp.example.com",
+          "certificateId": "/subscriptions/{sub}/resourceGroups/{rg}/providers/Microsoft.App/managedEnvironments/{env}/certificates/{cert}"
+        }
+      ]
+    }
+  }
+}
 ```
 
-**Custom Domain Configuration**
-```bash
-# Add custom domain
-az containerapp hostname add \
-  --name my-app \
-  --resource-group myResourceGroup \
-  --hostname myapp.example.com
+### Blue/Green Deployment Support
 
-# Bind certificate
-az containerapp hostname bind \
-  --name my-app \
-  --resource-group myResourceGroup \
-  --hostname myapp.example.com \
-  --certificate my-certificate
+**Traffic Splitting Configuration**
+```json
+{
+  "configuration": {
+    "ingress": {
+      "traffic": [
+        {
+          "revisionName": "myapp--blue-revision",
+          "weight": 80
+        },
+        {
+          "revisionName": "myapp--green-revision", 
+          "weight": 20
+        }
+      ]
+    }
+  }
+}
 ```
 
-### Service Discovery
-
-**Built-in Service Discovery**
+**Progressive Traffic Shifting**
 ```bash
-# Services can communicate using DNS names
-curl http://api-service.internal.mycontainerappenv.eastus.azurecontainerapps.io
-```
-
-### Traffic Splitting
-
-**Revision Traffic Management**
-```bash
-# Split traffic between revisions
+# Shift traffic gradually to new revision
 az containerapp ingress traffic set \
-  --name my-app \
+  --name myapp \
   --resource-group myResourceGroup \
-  --revision-weight my-app--revision1=70 my-app--revision2=30
+  --revision-weight myapp--blue-revision=50 myapp--green-revision=50
 ```
 
-## Comparison Matrix
+### User Defined Routes (UDR) Support
 
-| **Aspect** | **AKS** | **Azure Container Apps** |
-|------------|---------|-------------------------|
-| **Network Plugin Options** | Multiple (Azure CNI, Kubenet, Overlay) | Managed (abstracted) |
-| **IP Address Management** | Manual VNET/subnet planning required | Automatic IP management |
-| **Ingress Controllers** | Multiple options (AGIC, NGINX, Istio) | Built-in ingress with Envoy |
-| **Load Balancer Types** | Azure LB, Application Gateway, 3rd party | Built-in load balancing |
-| **Network Policies** | Calico, Azure NPM, custom | Managed security groups |
-| **Private Networking** | Full private cluster support | VNet integration available |
-| **Service Mesh** | Istio, Linkerd, Consul Connect | Built-in Envoy proxy |
-| **DNS Management** | CoreDNS, custom configurations | Managed DNS with service discovery |
-| **Cross-Region** | Manual multi-cluster setup | Built-in region selection |
+**Environment with UDR Configuration**
+```json
+{
+  "type": "Microsoft.App/managedEnvironments",
+  "properties": {
+    "vnetConfiguration": {
+      "internal": true,
+      "infrastructureSubnetId": "/subscriptions/{sub}/resourceGroups/{rg}/providers/Microsoft.Network/virtualNetworks/{vnet}/subnets/{subnet}",
+      "runtimeSubnetId": "/subscriptions/{sub}/resourceGroups/{rg}/providers/Microsoft.Network/virtualNetworks/{vnet}/subnets/{runtime-subnet}",
+      "platformReservedCidr": "10.90.0.0/16",
+      "platformReservedDnsIP": "10.90.0.10"
+    }
+  }
+}
+```
 
-## Security Considerations
+### Custom Network Security Groups (NSG)
 
-### AKS Network Security
-- **Network Segmentation**: Multiple node pools, network policies
-- **Private Clusters**: No public API server endpoint
-- **Azure Firewall Integration**: Centralized network security
-- **Pod Security**: Network policies, security contexts
+**NSG Association with Container Apps Subnet**
+```bash
+# Create NSG for Container Apps
+az network nsg create \
+  --resource-group myResourceGroup \
+  --name containerapp-nsg
 
-### Azure Container Apps Security
-- **Environment Isolation**: Network-level separation
-- **VNet Integration**: Private networking capabilities
-- **Built-in TLS**: Automatic certificate management
-- **Managed Security Groups**: Simplified access control
+# Add rules for Container Apps traffic
+az network nsg rule create \
+  --resource-group myResourceGroup \
+  --nsg-name containerapp-nsg \
+  --name allow-containerapp-inbound \
+  --protocol tcp \
+  --priority 1000 \
+  --destination-port-range 80,443 \
+  --access allow
 
-## Performance and Scalability
+# Associate NSG with subnet
+az network vnet subnet update \
+  --resource-group myResourceGroup \
+  --vnet-name myVnet \
+  --name containerapp-subnet \
+  --network-security-group containerapp-nsg
+```
 
-### AKS Networking Performance
-- **Direct VNet Integration**: Low latency with Azure CNI
-- **Custom Load Balancers**: Fine-tuned performance
-- **Service Mesh**: Advanced traffic management
-- **Node-level Networking**: Full control over network stack
+### Internal Environment Configuration
 
-### Azure Container Apps Performance
-- **Managed Infrastructure**: Optimized networking stack
-- **Global Distribution**: Multi-region deployment
-- **Built-in CDN**: Edge caching capabilities
-- **Automatic Scaling**: Network adapts to load
+**Private Container Apps Environment**
+```json
+{
+  "vnetConfiguration": {
+    "internal": true,
+    "infrastructureSubnetId": "/subscriptions/{sub}/resourceGroups/{rg}/providers/Microsoft.Network/virtualNetworks/{vnet}/subnets/{infrastructure-subnet}",
+    "runtimeSubnetId": "/subscriptions/{sub}/resourceGroups/{rg}/providers/Microsoft.Network/virtualNetworks/{vnet}/subnets/{runtime-subnet}"
+  }
+}
+```
 
-## Cost Implications
+## Networking Capabilities Comparison
 
-### AKS Networking Costs
-- **Load Balancer**: Standard/Basic SKU pricing
-- **Application Gateway**: Per-hour and data processing charges
-- **VNet Integration**: No additional costs for basic VNet
-- **NAT Gateway**: For outbound internet connectivity
+### AKS: Extensive Customization with Operational Complexity
+- **Multiple Pod Networking Options**: Azure CNI, Kubenet, Overlay, BYOCNI
+- **Flexible Ingress Management**: Multiple controllers (AGIC, NGINX, Traefik, custom)
+- **Advanced Service Mesh**: Managed Istio with full configuration control
+- **Granular Segmentation**: Network policies and Istio authorization policies
+- **Infrastructure Control**: Custom subnets, UDR, NSG, direct pod connectivity
+- **CNCF Ecosystem**: Install any CNCF networking project (unsupported by Microsoft)
+- **Operational Overhead**: Requires networking expertise and ongoing management
 
-### Azure Container Apps Networking
-- **Included Networking**: No separate networking charges
-- **Data Transfer**: Standard Azure data transfer rates
-- **Custom Domain**: Certificate management included
+### Azure Container Apps: Limited but Fully Managed
+- **Managed Networking**: Single networking model with platform optimization
+- **Built-in Ingress**: Fully managed with automatic load balancing
+- **Certificate Management**: Integrated TLS certificate provisioning and renewal
+- **Traffic Management**: Built-in blue/green deployment support
+- **Basic Infrastructure**: UDR and custom NSG support for compliance requirements
+- **Simplified Operations**: No networking expertise required
+- **Limited Customization**: Cannot install additional networking components
 
-## Migration Considerations
+## Decision Framework
 
-### From Traditional Infrastructure
-- **AKS**: Requires network architecture redesign
-- **Azure Container Apps**: Simplified migration path
+### Choose AKS Networking When:
+- **Advanced Networking Requirements**: Need specific CNI, service mesh, or custom networking solutions
+- **Multiple Ingress Controllers**: Require different ingress strategies for various applications
+- **Complex Segmentation**: Need granular network policies and advanced security controls
+- **CNCF Ecosystem Integration**: Want to use specific CNCF networking projects
+- **Hybrid Connectivity**: Complex on-premises integration requirements
+- **Networking Expertise Available**: Team has strong networking and Kubernetes knowledge
 
-### From Cloud Foundry
-- **AKS**: Significant networking model changes
-- **Azure Container Apps**: Similar routing and domain concepts
+### Choose Azure Container Apps When:
+- **Simplified Networking**: Standard networking requirements without complex customization
+- **Managed Operations**: Prefer platform-managed networking over manual configuration
+- **Rapid Development**: Need fast deployment without networking complexity
+- **Standard Compliance**: Basic UDR and NSG support meets compliance needs
+- **Limited Networking Expertise**: Team wants to focus on application development
+- **Cost Optimization**: Avoid operational overhead of managing networking infrastructure
 
-## Best Practices
-
-### AKS Networking Best Practices
-- Plan IP address spaces carefully for Azure CNI
-- Use network policies for security
-- Implement proper ingress controllers
-- Configure monitoring for network traffic
-- Use private clusters for production
-
-### Azure Container Apps Best Practices
-- Use internal ingress for backend services
-- Configure custom domains for production
-- Implement proper environment separation
-- Monitor ingress traffic and scaling
-- Use VNet integration for enhanced security
+The fundamental difference is that AKS provides complete networking flexibility at the cost of complexity, while Azure Container Apps offers sufficient networking capabilities with zero operational overhead for most common use cases.
 
 ## Next Steps
 
