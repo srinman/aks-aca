@@ -6,6 +6,22 @@ This document compares the security architectures, controls, and capabilities be
 
 Security is a critical consideration for container platforms. Both AKS and Azure Container Apps provide robust security features, but they approach security from different perspectives - AKS with comprehensive control and Azure Container Apps with managed security by default.
 
+## Security Features Comparison Matrix
+
+| Security Feature | AKS | Azure Container Apps | Section Reference |
+|-----------------|-----|---------------------|-------------------|
+| **Identity & Access** | Azure AD + Kubernetes RBAC + Workload Identity | Azure AD + Managed Identity | [Identity Management](#identity-and-access-management) |
+| **Privileged Containers** | ✅ Supported (Pod Security Standards) | ❌ Not supported (platform-managed) | [Privileged Pods](#privileged-pod-security) |
+| **mTLS & In-Transit** | Istio Service Mesh add-on required | ✅ Built-in platform-level mTLS | [mTLS Security](#mtls-and-in-transit-encryption) |
+| **Confidential Computing** | ✅ Confidential VMs + SGX nodes | ❌ Not available | [Confidential Computing](#confidential-computing) |
+| **Pod Sandboxing** | Kata Containers + gVisor support | Platform-managed container isolation | [Pod Sandboxing](#pod-sandboxing) |
+| **Microsoft Defender** | ✅ Full Defender for Containers | ✅ Integrated security scanning | [Microsoft Defender](#microsoft-defender-for-containers) |
+| **Image Integrity** | ✅ Cosign + Notary v2 support | Basic image scanning | [Image Integrity](#image-integrity) |
+| **Encryption at Rest** | ✅ Customer-managed KMS + etcd encryption | ✅ Platform-managed encryption | [Encryption](#kms-etcd-encryption) |
+| **Runtime Security** | AppArmor + seccomp profiles | Platform-managed security profiles | [Runtime Security](#apparmor-and-seccomp) |
+| **Network Policies** | ✅ CNI Overlay + Cilium + Calico | Basic network isolation | [Network Policies](#network-policies-comparison) |
+| **Admission Control** | ✅ Pod Security Admission (PSA) | Platform-enforced security policies | [Pod Security](#pod-security-admission-psa) |
+
 ## Azure Kubernetes Service (AKS) Security
 
 ### Identity and Access Management
@@ -46,24 +62,6 @@ roleRef:
   kind: ClusterRole
   name: readonly-user
   apiGroup: rbac.authorization.k8s.io
-```
-
-**Managed Identity for Workloads**
-```yaml
-# Pod with managed identity
-apiVersion: v1
-kind: Pod
-metadata:
-  name: demo-pod
-  labels:
-    aadpodidbinding: demo-pod-identity
-spec:
-  containers:
-  - name: demo
-    image: mcr.microsoft.com/k8s/aad-pod-identity/demo:v1.8.0
-    env:
-    - name: MY_AZURE_IDENTITY_CLIENT_ID
-      value: "your-identity-client-id"
 ```
 
 ### Network Security
@@ -325,19 +323,680 @@ az containerapp create \
 # and integrates with Microsoft Defender for Containers
 ```
 
-## Comparison Matrix
+## Privileged Pod Security
 
-| **Security Aspect** | **AKS** | **Azure Container Apps** |
-|---------------------|---------|-------------------------|
-| **Identity Management** | Azure AD + Kubernetes RBAC | Azure AD + Azure RBAC |
-| **Network Isolation** | Full control with NSGs, firewalls | VNet integration, managed isolation |
-| **Secret Management** | Multiple options (K8s secrets, Key Vault, Sealed Secrets) | Built-in secrets + Key Vault |
-| **Pod/Container Security** | Pod Security Standards, Security Contexts | Built-in container isolation |
-| **Image Scanning** | Third-party tools + Defender for Containers | Automatic with Defender for Containers |
-| **Network Policies** | Kubernetes Network Policies, Calico | Managed network security groups |
-| **Compliance** | Manual implementation required | Built-in compliance controls |
-| **Vulnerability Management** | Manual patching and updates | Automatic platform patching |
-| **Audit Logging** | Kubernetes audit logs + Azure Monitor | Built-in audit logs |
+### AKS: Privileged Container Support
+AKS allows privileged containers through Pod Security Standards configuration, enabling implementation of third-party system tools and specialized workloads.
+
+```yaml
+# Pod Security Standards - Privileged namespace
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: system-tools
+  labels:
+    pod-security.kubernetes.io/enforce: privileged
+    pod-security.kubernetes.io/audit: privileged
+    pod-security.kubernetes.io/warn: privileged
+---
+# Privileged pod for system tools
+apiVersion: v1
+kind: Pod
+metadata:
+  name: system-diagnostics
+  namespace: system-tools
+spec:
+  containers:
+  - name: diagnostics
+    image: system-tools:latest
+    securityContext:
+      privileged: true
+      capabilities:
+        add: ["SYS_ADMIN", "NET_ADMIN"]
+    volumeMounts:
+    - name: host-root
+      mountPath: /host
+  volumes:
+  - name: host-root
+    hostPath:
+      path: /
+```
+
+**Use Cases for Privileged Containers:**
+- Network diagnostic tools
+- System monitoring agents
+- Storage drivers
+- Security scanning tools
+- Hardware management utilities
+
+### Azure Container Apps: Platform-Managed Security
+ACA does not support privileged containers, maintaining security through platform-managed controls. System-level functionality must be addressed by the platform itself.
+
+```json
+{
+  "properties": {
+    "template": {
+      "containers": [
+        {
+          "name": "app",
+          "image": "myapp:latest",
+          "securityContext": {
+            "privileged": false,
+            "runAsNonRoot": true
+          }
+        }
+      ]
+    }
+  }
+}
+```
+
+**Platform-Provided Alternatives:**
+- Built-in monitoring and diagnostics
+- Managed logging and metrics collection
+- Platform-level security scanning
+- Automated patching and updates
+
+## mTLS and In-Transit Encryption
+
+### AKS: Istio Service Mesh for mTLS
+AKS requires the Istio add-on for comprehensive mTLS implementation between services.
+
+```bash
+# Enable Istio add-on
+az aks mesh enable --resource-group myResourceGroup --name myAKSCluster
+```
+
+```yaml
+# PeerAuthentication for strict mTLS
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: default
+  namespace: production
+spec:
+  mtls:
+    mode: STRICT
+---
+# DestinationRule for mTLS traffic policy
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: mtls-policy
+spec:
+  host: "*.production.svc.cluster.local"
+  trafficPolicy:
+    tls:
+      mode: ISTIO_MUTUAL
+```
+
+**Istio Advanced Features:**
+- Traffic routing and load balancing
+- Circuit breakers and retries
+- Authorization policies
+- Observability and tracing
+
+### Azure Container Apps: Built-in Platform mTLS
+ACA provides mTLS capabilities out-of-the-box without requiring additional service mesh configuration. The platform implements sidecar-based mTLS at the infrastructure level.
+
+```json
+{
+  "type": "Microsoft.App/managedEnvironments",
+  "properties": {
+    "peerAuthentication": {
+      "mtls": {
+        "enabled": true
+      }
+    }
+  }
+}
+```
+
+**Platform Implementation:**
+- **Sidecar-based mTLS**: ACA automatically injects sidecar proxies (based on Envoy) for each container instance
+- **Certificate management**: Automatic certificate provisioning and rotation
+- **Service-to-service encryption**: All inter-service communication encrypted by default
+- **No configuration required**: mTLS enabled through environment-level settings
+
+**Limitations compared to Istio:**
+- No advanced traffic routing features
+- Limited observability compared to full Istio
+- No custom authorization policies
+- No circuit breaker configurations
+
+## Confidential Computing
+
+### AKS: Confidential Virtual Machines and SGX
+AKS supports confidential computing through specialized node pools with confidential VMs and Intel SGX enclaves.
+
+```bash
+# Create AKS cluster with confidential computing nodes
+az aks create \
+    --resource-group myResourceGroup \
+    --name myConfidentialCluster \
+    --node-vm-size Standard_DC4s_v3 \
+    --enable-encryption-at-host \
+    --node-count 3
+
+# Add confidential computing node pool
+az aks nodepool add \
+    --resource-group myResourceGroup \
+    --cluster-name myConfidentialCluster \
+    --name confcompute \
+    --node-vm-size Standard_DC8s_v3 \
+    --node-count 2 \
+    --aks-custom-headers usegen2vm=true
+```
+
+```yaml
+# Pod with SGX enclave support
+apiVersion: v1
+kind: Pod
+metadata:
+  name: sgx-enclave-app
+spec:
+  nodeSelector:
+    kubernetes.azure.com/sgx_epc_mem_in_MiB: "10"
+  containers:
+  - name: sgx-app
+    image: confidential-app:latest
+    resources:
+      limits:
+        kubernetes.azure.com/sgx_epc_mem_in_MiB: 10
+    volumeMounts:
+    - name: sgx-device
+      mountPath: /dev/sgx_enclave
+  volumes:
+  - name: sgx-device
+    hostPath:
+      path: /dev/sgx_enclave
+```
+
+**Confidential Computing Features:**
+- Intel SGX enclaves for application isolation
+- AMD SEV-SNP for VM-level confidentiality
+- Confidential OS and container runtime
+- Hardware-based attestation
+
+### Azure Container Apps: Not Available
+ACA does not currently support confidential computing features. Workloads requiring confidential computing must use AKS or Azure Container Instances with confidential computing support.
+
+## Pod Sandboxing
+
+### AKS: Kata Containers and gVisor Support
+AKS supports multiple container runtime options for enhanced isolation.
+
+```yaml
+# RuntimeClass for Kata Containers
+apiVersion: node.k8s.io/v1
+kind: RuntimeClass
+metadata:
+  name: kata-cc
+handler: kata-cc
+---
+# Pod using Kata Containers runtime
+apiVersion: v1
+kind: Pod
+metadata:
+  name: sandbox-pod
+spec:
+  runtimeClassName: kata-cc
+  containers:
+  - name: app
+    image: untrusted-app:latest
+```
+
+```bash
+# Enable gVisor runtime
+kubectl apply -f https://raw.githubusercontent.com/google/gvisor/master/examples/kubernetes/gvisor-config.yaml
+```
+
+**Sandboxing Technologies:**
+- **Kata Containers**: VM-based container isolation
+- **gVisor**: User-space kernel for container sandboxing
+- **Windows Process Isolation**: For Windows containers
+- **Confidential Containers**: Hardware-based isolation
+
+### Azure Container Apps: Platform-Managed Isolation
+ACA provides container isolation through platform-managed security boundaries without exposing runtime configuration.
+
+```json
+{
+  "properties": {
+    "template": {
+      "containers": [
+        {
+          "name": "isolated-app",
+          "image": "app:latest"
+        }
+      ]
+    }
+  }
+}
+```
+
+**Platform Isolation Features:**
+- Automatic container sandboxing
+- Process-level isolation
+- Network namespace isolation
+- Filesystem isolation
+
+## Microsoft Defender for Containers
+
+### AKS: Full Defender for Containers Integration
+AKS supports comprehensive Microsoft Defender for Containers capabilities.
+
+```bash
+# Enable Defender for Containers
+az security pricing create \
+    --name "Containers" \
+    --tier "Standard"
+
+# Install Defender agent on AKS
+az aks update \
+    --resource-group myResourceGroup \
+    --name myAKSCluster \
+    --enable-defender
+```
+
+**Defender Features for AKS:**
+- Real-time threat detection
+- Vulnerability assessment
+- Runtime protection
+- Network threat detection
+- Kubernetes security recommendations
+- Compliance dashboard
+
+```yaml
+# Defender DaemonSet (automatically deployed)
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: microsoft-defender-for-endpoint
+  namespace: kube-system
+spec:
+  selector:
+    matchLabels:
+      app: microsoft-defender-for-endpoint
+  template:
+    spec:
+      containers:
+      - name: defender
+        image: mcr.microsoft.com/azuredefender/stable:latest
+        securityContext:
+          privileged: true
+```
+
+### Azure Container Apps: Integrated Security Scanning
+ACA includes integrated security scanning and threat detection as part of the platform.
+
+```bash
+# Security scanning is automatic - no configuration needed
+az containerapp show \
+    --name my-app \
+    --resource-group myResourceGroup \
+    --query "properties.template.containers[0].image"
+```
+
+**Integrated Security Features:**
+- Automatic image vulnerability scanning
+- Runtime threat detection
+- Security compliance monitoring
+- Built-in security alerts
+
+## Image Integrity
+
+### AKS: Cosign and Notary v2 Support
+AKS supports advanced image signing and verification mechanisms.
+
+```yaml
+# Policy to require signed images
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: require-signed-images
+spec:
+  validationFailureAction: enforce
+  background: false
+  rules:
+  - name: check-image-signature
+    match:
+      any:
+      - resources:
+          kinds:
+          - Pod
+    verifyImages:
+    - imageReferences:
+      - "*"
+      required: true
+      attestors:
+      - entries:
+        - keys:
+            publicKeys: |-
+              -----BEGIN PUBLIC KEY-----
+              MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE...
+              -----END PUBLIC KEY-----
+```
+
+```bash
+# Sign container image with Cosign
+cosign sign --key cosign.key myregistry.azurecr.io/myapp:v1.0.0
+
+# Verify image signature
+cosign verify --key cosign.pub myregistry.azurecr.io/myapp:v1.0.0
+```
+
+**Image Integrity Features:**
+- Cosign image signing integration
+- Notary v2 support for OCI artifacts
+- Policy enforcement with admission controllers
+- Supply chain security validation
+
+### Azure Container Apps: Basic Image Scanning
+ACA provides basic image security scanning but limited image integrity verification.
+
+```json
+{
+  "properties": {
+    "configuration": {
+      "registries": [
+        {
+          "server": "myregistry.azurecr.io",
+          "username": "",
+          "passwordSecretRef": "registry-password"
+        }
+      ]
+    }
+  }
+}
+```
+
+**Available Features:**
+- Automatic vulnerability scanning
+- Registry integration security
+- Basic image validation
+
+## KMS etcd Encryption
+
+### AKS: Customer-Managed Key Encryption
+AKS supports customer-managed encryption keys for etcd data encryption.
+
+```bash
+# Create AKS cluster with customer-managed encryption
+az aks create \
+    --resource-group myResourceGroup \
+    --name myEncryptedCluster \
+    --enable-disk-encryption \
+    --disk-encryption-set-id /subscriptions/.../diskEncryptionSets/myDES \
+    --enable-encryption-at-host
+
+# Configure etcd encryption with Azure Key Vault
+az aks update \
+    --resource-group myResourceGroup \
+    --name myEncryptedCluster \
+    --enable-azure-keyvault-kms \
+    --azure-keyvault-kms-key-vault-network-access private \
+    --azure-keyvault-kms-key-id https://myvault.vault.azure.net/keys/mykey/version
+```
+
+**Encryption Features:**
+- Customer-managed keys (CMK) through Azure Key Vault
+- etcd encryption at rest
+- Node disk encryption
+- Secret encryption in etcd
+
+### Azure Container Apps: Platform-Managed Encryption
+ACA provides automatic platform-managed encryption without customer key management options.
+
+```json
+{
+  "properties": {
+    "environmentId": "/subscriptions/.../managedEnvironments/myenv",
+    "configuration": {
+      "secrets": [
+        {
+          "name": "encrypted-secret",
+          "value": "automatically-encrypted-by-platform"
+        }
+      ]
+    }
+  }
+}
+```
+
+**Platform Encryption:**
+- Automatic encryption at rest
+- Microsoft-managed encryption keys
+- No customer key management required
+
+## AppArmor and seccomp
+
+### AKS: AppArmor and seccomp Profile Support
+AKS supports custom AppArmor and seccomp profiles for enhanced container security.
+
+```yaml
+# Pod with AppArmor profile
+apiVersion: v1
+kind: Pod
+metadata:
+  name: secured-pod
+  annotations:
+    container.apparmor.security.beta.kubernetes.io/app: localhost/custom-profile
+spec:
+  containers:
+  - name: app
+    image: nginx:latest
+    securityContext:
+      seccompProfile:
+        type: Localhost
+        localhostProfile: profiles/audit.json
+```
+
+```bash
+# Load custom AppArmor profile on nodes
+sudo apparmor_parser -r -W /etc/apparmor.d/custom-profile
+
+# Create custom seccomp profile
+cat > audit.json << EOF
+{
+  "defaultAction": "SCMP_ACT_ERRNO",
+  "architectures": ["SCMP_ARCH_X86_64"],
+  "syscalls": [
+    {
+      "names": ["accept", "accept4", "access", "arch_prctl", "bind"],
+      "action": "SCMP_ACT_ALLOW"
+    }
+  ]
+}
+EOF
+```
+
+**Security Profile Features:**
+- Custom AppArmor profiles
+- Custom seccomp profiles
+- Profile enforcement per container
+- Runtime security monitoring
+
+### Azure Container Apps: Platform-Managed Security Profiles
+ACA automatically applies platform-managed security profiles without custom configuration options.
+
+```json
+{
+  "properties": {
+    "template": {
+      "containers": [
+        {
+          "name": "app",
+          "image": "nginx:latest"
+        }
+      ]
+    }
+  }
+}
+```
+
+**Platform-Managed Security:**
+- Automatic security profile application
+- Default seccomp profiles
+- Platform-optimized AppArmor profiles
+- No custom profile configuration
+
+## Network Policies Comparison
+
+### AKS: Advanced Network Policy Support
+AKS supports multiple CNI options with comprehensive network policy implementations.
+
+```bash
+# Create AKS with Azure CNI Overlay and Cilium
+az aks create \
+    --resource-group myResourceGroup \
+    --name myCluster \
+    --network-plugin azure \
+    --network-plugin-mode overlay \
+    --network-dataplane cilium \
+    --enable-network-policy
+```
+
+```yaml
+# Cilium Network Policy
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: l7-policy
+spec:
+  endpointSelector:
+    matchLabels:
+      app: backend
+  ingress:
+  - fromEndpoints:
+    - matchLabels:
+        app: frontend
+    toPorts:
+    - ports:
+      - port: "8080"
+        protocol: TCP
+      rules:
+        http:
+        - method: "GET"
+          path: "/api/.*"
+```
+
+```yaml
+# Calico Global Network Policy
+apiVersion: projectcalico.org/v3
+kind: GlobalNetworkPolicy
+metadata:
+  name: deny-all-egress
+spec:
+  selector: all()
+  types:
+  - Egress
+  egress:
+  - action: Allow
+    destination:
+      nets: [10.0.0.0/16]
+  - action: Deny
+```
+
+**Network Policy Features:**
+- **Azure CNI Overlay**: Advanced networking with pod-to-pod connectivity
+- **Cilium dataplane**: eBPF-based network policies with L7 filtering
+- **Calico**: Advanced network policies with global rules
+- **Kubernetes Network Policies**: Standard policy enforcement
+
+### Azure Container Apps: Basic Network Isolation
+ACA provides simplified network isolation through managed network security groups and VNet integration.
+
+```json
+{
+  "type": "Microsoft.App/managedEnvironments",
+  "properties": {
+    "infrastructureResourceGroup": "MC_myRG_myEnv_eastus",
+    "vnetConfiguration": {
+      "internal": true,
+      "infrastructureSubnetId": "/subscriptions/.../subnets/infrastructure",
+      "runtimeSubnetId": "/subscriptions/.../subnets/runtime"
+    }
+  }
+}
+```
+
+**Network Isolation Features:**
+- VNet integration for private networking
+- Internal-only environments
+- Basic ingress/egress controls
+- Platform-managed security groups
+
+## Pod Security Admission (PSA)
+
+### AKS: Full Pod Security Standards Support
+AKS supports comprehensive Pod Security Admission with all three security levels.
+
+```yaml
+# Namespace with restricted security policy
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: production
+  labels:
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/audit: restricted
+    pod-security.kubernetes.io/warn: restricted
+---
+# AdmissionConfiguration for cluster-wide PSA
+apiVersion: apiserver.config.k8s.io/v1
+kind: AdmissionConfiguration
+plugins:
+- name: PodSecurity
+  configuration:
+    apiVersion: pod-security.admission.config.k8s.io/v1beta1
+    kind: PodSecurityConfiguration
+    defaults:
+      enforce: "baseline"
+      enforce-version: "latest"
+      audit: "restricted"
+      audit-version: "latest"
+      warn: "restricted"
+      warn-version: "latest"
+    exemptions:
+      usernames: []
+      runtimeClasses: []
+      namespaces: [kube-system]
+```
+
+**PSA Security Levels:**
+- **Privileged**: Unrestricted policy (system workloads)
+- **Baseline**: Minimally restrictive (common containerized workloads)
+- **Restricted**: Heavily restricted (security-critical applications)
+
+### Azure Container Apps: Platform-Enforced Security Policies
+ACA automatically enforces security policies without requiring explicit PSA configuration.
+
+```json
+{
+  "properties": {
+    "template": {
+      "containers": [
+        {
+          "name": "app",
+          "image": "app:latest",
+          "securityContext": {
+            "runAsNonRoot": true,
+            "readOnlyRootFilesystem": true,
+            "allowPrivilegeEscalation": false
+          }
+        }
+      ]
+    }
+  }
+}
+```
+
+**Platform Security Enforcement:**
+- Automatic baseline security policies
+- No privileged container support
+- Built-in security context enforcement
+- Simplified security model
 
 ## Security Best Practices
 
