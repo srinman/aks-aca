@@ -1,5 +1,13 @@
 # Azure Kubernetes Service (AKS) vs Azure Container Apps (ACA): A Comprehensive Comparison
 
+> **⚠️ IMPORTANT DISCLAIMER**
+> 
+> This is an independent comparison document and is not officially endorsed or created by Microsoft. This documentation represents my personal analysis and comparison of Azure Kubernetes Service (AKS) and Azure Container Apps (ACA) based on attributes that I consider important for customers evaluating these platforms.
+> 
+> The importance and relevance of specific features, capabilities, and considerations may vary significantly depending on your unique use case, organizational requirements, and technical constraints. What may be critically important for one customer might be less relevant for another.
+> 
+> Please consult official Microsoft documentation, engage with Microsoft solution architects, and conduct your own evaluation to determine the most suitable platform for your specific needs, or feel free to [connect with me on LinkedIn](https://www.linkedin.com/in/sridhermanivel/) for discussions or suggestions. I will greatly appreciate your input and feedback.
+
 This repository provides an in-depth comparison between Azure Kubernetes Service (AKS) and Azure Container Apps (ACA), two powerful container platforms offered by Microsoft Azure. This documentation will help you understand the strengths, use cases, and architectural differences between these platforms to make informed decisions for your containerized applications.
 
 ## Table of Contents
@@ -196,3 +204,25 @@ Choose your starting point based on your needs:
 - **Evaluating platforms?** Start with the [Service Deployment Comparison](./service-deployment.md)
 
 Each comparison document provides practical examples, architectural guidance, and decision frameworks to help you choose the right platform for your specific use case.
+
+---
+
+## Disclaimer
+
+> **⚠️ IMPORTANT NOTICE**
+> 
+> This comparison documentation is an independent analysis and is not an official Microsoft publication. The content reflects my personal assessment of Azure Kubernetes Service (AKS) and Azure Container Apps (ACA) capabilities, focusing on attributes I believe are relevant for customer decision-making.
+> 
+> **Key Considerations:**
+> - Feature priorities and importance may vary significantly based on your specific requirements
+> - Technology capabilities and service offerings evolve rapidly - always verify current features with official documentation
+> - This analysis represents a point-in-time comparison and may not reflect the latest service updates
+> - Individual customer needs, compliance requirements, and technical constraints should drive platform selection decisions
+> 
+> **Recommendations:**
+> - Consult official Microsoft Azure documentation for the most current and authoritative information
+> - Engage with Microsoft solution architects and support teams for guidance tailored to your use case
+> - Conduct proof-of-concept implementations to validate platform suitability for your workloads
+> - Consider engaging Microsoft partners or consultants for comprehensive architecture reviews
+> 
+> The goal of this documentation is to provide a structured comparison framework to inform your evaluation process, not to prescribe definitive recommendations for all scenarios.
