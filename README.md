@@ -96,7 +96,7 @@ Azure Container Apps represents Microsoft's response to the growing demand for s
 **Design Philosophy**
 Azure Container Apps embodies several key principles:
 - **Developer-Centric**: Focus on application deployment rather than infrastructure management
-- **Open Source Foundation**: Built on proven technologies like Kubernetes, Dapr, KEDA, and Envoy
+- **Open Source Integration**: Integrates with proven technologies including Dapr for microservices, KEDA for event-driven scaling, and supports standard container technologies
 - **Serverless by Default**: Automatic scaling including scale-to-zero capabilities
 - **Event-Driven Architecture**: Native support for event-driven and microservices patterns
 

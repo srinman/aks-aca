@@ -319,8 +319,8 @@ az containerapp create \
 
 **Image Security**
 ```bash
-# Container Apps automatically scans images from Azure Container Registry
-# and integrates with Microsoft Defender for Containers
+# Container Apps integrates with Microsoft Defender for Containers
+# for security scanning and threat detection
 ```
 
 ## Privileged Pod Security
@@ -437,7 +437,7 @@ spec:
 - Observability and tracing
 
 ### Azure Container Apps: Built-in Platform mTLS
-ACA provides mTLS capabilities out-of-the-box without requiring additional service mesh configuration. The platform implements sidecar-based mTLS at the infrastructure level.
+ACA provides mTLS capabilities out-of-the-box without requiring additional service mesh configuration. The platform handles mTLS implementation at the infrastructure level.
 
 ```json
 {
@@ -453,7 +453,8 @@ ACA provides mTLS capabilities out-of-the-box without requiring additional servi
 ```
 
 **Platform Implementation:**
-- **Sidecar-based mTLS**: ACA automatically injects sidecar proxies (based on Envoy) for each container instance
+- **Platform-managed mTLS**: ACA handles mTLS configuration and enforcement through its infrastructure
+- **Envoy integration**: Uses Envoy proxy technology for internal traffic routing and security
 - **Certificate management**: Automatic certificate provisioning and rotation
 - **Service-to-service encryption**: All inter-service communication encrypted by default
 - **No configuration required**: mTLS enabled through environment-level settings

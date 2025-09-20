@@ -19,9 +19,9 @@ Application deployment approaches differ significantly between AKS and Azure Con
 | **System Services** | DaemonSets for node-level services | Platform-managed system services | [DaemonSets](#daemonset-for-node-level-services) |
 | **Deployment Patterns** | Blue/Green, Canary with Istio + Flagger | Traffic splitting between revisions | [Blue/Green](#bluegreen-deployment-with-services) / [Canary](#sophisticated-canary-deployment-with-istio-and-flagger) |
 | **Identity & Auth** | Workload Identity (App Reg + Managed Identity) | Managed Identity integration | [Workload Identity](#workload-identity-for-azure-authentication) / [Managed Identity](#managed-identity-for-azure-authentication) |
-| **Service Mesh** | Istio add-on for mTLS | Built-in mTLS support | [Istio mTLS](#mtls-with-istio-service-mesh) / [Built-in mTLS](#out-of-the-box-mtls-support) |
+| **Service Mesh** | Istio add-on for mTLS | Platform-managed mTLS | [Istio mTLS](#mtls-with-istio-service-mesh) / [Built-in mTLS](#out-of-the-box-mtls-support) |
 | **Event-Driven** | KEDA add-on configuration | Built-in KEDA integration | [KEDA Add-on](#event-driven-support-with-keda-add-on) / [Built-in KEDA](#built-in-event-driven-support-with-keda) |
-| **Session Management** | Custom session affinity solutions | Built-in dynamic sessions | [Dynamic Sessions](#dynamic-sessions-support) |
+| **Session Management** | Custom session affinity solutions | Sticky sessions support | [Dynamic Sessions](#dynamic-sessions-support) |
 | **Functions Support** | Custom function runtimes | Native Azure Functions support | [Azure Functions](#azure-functions-support) |
 
 ## API Models Comparison
@@ -890,7 +890,7 @@ resource containerApp 'Microsoft.App/containerApps@2023-05-01' = {
 }
 ```
 
-### Dynamic Sessions Support
+### Sticky Sessions Support
 
 **Session Affinity Configuration**
 ```json

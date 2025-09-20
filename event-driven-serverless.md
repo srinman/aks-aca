@@ -15,8 +15,8 @@ Event-driven architectures and serverless patterns are increasingly important fo
 | **Event Sources** | 60+ KEDA scalers + custom scalers | Azure-native event sources | [AKS Event Sources](#event-sources-and-processing) / [ACA Event Sources](#event-source-support) |
 | **Batch Processing** | Kubernetes Jobs + KEDA | Container Apps Jobs | [AKS Jobs](#batch-processing-with-jobs) / [ACA Jobs](#container-apps-jobs) |
 | **Microservices** | Dapr add-on + service mesh | Built-in Dapr integration | [AKS Dapr](#event-sources-and-processing) / [ACA Dapr](#dapr-integration) |
-| **Cold Start Performance** | Variable (container startup time) | Optimized for fast cold starts | [Performance](#cold-start-performance) |
-| **Scaling Speed** | Configurable, KEDA-dependent | Platform-optimized scaling | [Scaling](#scaling-characteristics) |
+| **Cold Start Performance** | Variable (container startup time) | Platform-optimized cold starts | [Performance](#cold-start-performance) |
+| **Scaling Speed** | Configurable, KEDA-dependent | Platform-managed scaling | [Scaling](#scaling-characteristics) |
 | **Cost Model** | Pay for nodes (minimum capacity) | Pay-per-execution + request | [Performance](#performance-characteristics) |
 | **Configuration Complexity** | High (multiple add-ons to configure) | Low (built-in capabilities) | [Best Practices](#best-practices) |
 
@@ -343,7 +343,7 @@ spec:
 | **Scale-to-Zero** | Via KEDA or Knative | Built-in native support |
 | **Event Sources** | 50+ KEDA scalers | 20+ built-in scalers |
 | **Setup Complexity** | Requires add-on installation | Zero configuration required |
-| **Scaling Speed** | 10-30 seconds | 1-10 seconds |
+| **Scaling Speed** | Variable based on configuration | Platform-managed |
 | **Cost Model** | Pay for minimum nodes | Pay per execution |
 | **Job Processing** | Kubernetes Jobs/CronJobs | Native Container Apps Jobs |
 | **Service Mesh Integration** | Manual Dapr installation | Built-in Dapr support |
@@ -384,15 +384,15 @@ spec:
 ### Cold Start Performance
 | **Platform** | **Cold Start Time** | **Optimization Options** |
 |--------------|-------------------|-------------------------|
-| **AKS + KEDA** | 15-45 seconds | Pre-warmed nodes, smaller images |
-| **AKS + Knative** | 10-30 seconds | Knative optimizations |
-| **Azure Container Apps** | 1-10 seconds | Optimized for fast starts |
+| **AKS + KEDA** | Variable (container startup time) | Pre-warmed nodes, smaller images |
+| **AKS + Knative** | Variable (depends on configuration) | Knative optimizations |
+| **Azure Container Apps** | Platform-optimized | Managed platform optimizations |
 
 ### Scaling Characteristics
 | **Metric** | **AKS** | **Azure Container Apps** |
 |------------|---------|-------------------------|
-| **Scale-out speed** | 30-60 seconds | 5-15 seconds |
-| **Scale-in speed** | 30-60 seconds | 30-90 seconds |
+| **Scale-out speed** | Variable (depends on configuration) | Platform-managed |
+| **Scale-in speed** | Variable (depends on configuration) | Platform-managed |
 | **Maximum instances** | Cluster node limits | 1000 per app |
 | **Concurrent scaling** | Multiple apps per node | Independent per app |
 

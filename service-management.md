@@ -449,7 +449,7 @@ az containerapp env update \
 **Maintenance Window Characteristics:**
 - **Platform-Managed**: All updates, patches, and maintenance performed by Azure
 - **Zero-Downtime**: Maintenance designed to be non-disruptive to running applications
-- **Automatic Rollback**: Platform automatically handles failed updates
+- **Controlled Deployments**: Platform ensures existing revisions remain active until new revisions are validated
 - **User Notification**: Advance notification of planned maintenance activities
 
 ### Workload Profile Management
