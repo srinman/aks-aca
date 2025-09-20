@@ -6,6 +6,24 @@ This document compares methods and processes for deploying applications to Azure
 
 Application deployment approaches differ significantly between AKS and Azure Container Apps. AKS uses Kubernetes APIs and resources for deployment with extensive customization options, while Azure Container Apps uses Azure Resource Manager APIs with native Azure resource management and simplified deployment models.
 
+## Application Deployment Comparison Matrix
+
+| Deployment Feature | AKS | Azure Container Apps | Section Reference |
+|-------------------|-----|---------------------|-------------------|
+| **API Model** | Kubernetes API + CRDs | Azure Resource Manager API | [API Models](#api-models-comparison) |
+| **GitOps Tools** | Flux, ArgoCD, custom operators | GitHub Actions, Azure DevOps | [GitOps](#leveraging-gitops-tools-for-deployment) |
+| **Package Management** | Helm charts, Kustomize | ARM/Bicep templates | [Helm](#helm-chart-deployments) / [ARM/Bicep](#managing-revisions-and-traffic-with-armbicep) |
+| **Native Deployments** | Kubernetes YAML manifests | ARM/JSON templates | [K8s YAML](#native-kubernetes-yaml-deployments) / [ARM JSON](#native-azure-resource-deployment) |
+| **High Availability** | Pod Disruption Budgets, anti-affinity | Platform-managed availability | [PDB](#pod-disruption-budgets-for-maintenance-management) / [Anti-affinity](#application-deployment-control-and-anti-affinity) |
+| **Stateful Workloads** | StatefulSets + persistent volumes | Limited stateful support | [StatefulSets](#statefulset-for-stateful-workloads) |
+| **System Services** | DaemonSets for node-level services | Platform-managed system services | [DaemonSets](#daemonset-for-node-level-services) |
+| **Deployment Patterns** | Blue/Green, Canary with Istio + Flagger | Traffic splitting between revisions | [Blue/Green](#bluegreen-deployment-with-services) / [Canary](#sophisticated-canary-deployment-with-istio-and-flagger) |
+| **Identity & Auth** | Workload Identity (App Reg + Managed Identity) | Managed Identity integration | [Workload Identity](#workload-identity-for-azure-authentication) / [Managed Identity](#managed-identity-for-azure-authentication) |
+| **Service Mesh** | Istio add-on for mTLS | Built-in mTLS support | [Istio mTLS](#mtls-with-istio-service-mesh) / [Built-in mTLS](#out-of-the-box-mtls-support) |
+| **Event-Driven** | KEDA add-on configuration | Built-in KEDA integration | [KEDA Add-on](#event-driven-support-with-keda-add-on) / [Built-in KEDA](#built-in-event-driven-support-with-keda) |
+| **Session Management** | Custom session affinity solutions | Built-in dynamic sessions | [Dynamic Sessions](#dynamic-sessions-support) |
+| **Functions Support** | Custom function runtimes | Native Azure Functions support | [Azure Functions](#azure-functions-support) |
+
 ## API Models Comparison
 
 ### AKS: Kubernetes API Model

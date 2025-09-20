@@ -6,6 +6,22 @@ This document compares day-2 operations, maintenance, and platform management be
 
 Service management encompasses ongoing operational tasks required to maintain healthy, secure, and efficient container platforms. AKS requires extensive hands-on management and configuration, while Azure Container Apps provides a fully managed experience with minimal operational overhead.
 
+## Service Management Comparison Matrix
+
+| Management Aspect | AKS | Azure Container Apps | Section Reference |
+|------------------|-----|---------------------|-------------------|
+| **Platform Upgrades** | Manual control plane + node pool upgrades | Automatic platform updates | [Cluster Upgrades](#upgrading-clusters---control-plane-and-worker-nodes) |
+| **Multi-Environment** | AKS Fleet for multi-cluster management | Environment-based isolation | [Fleet Management](#using-aks-fleet-for-multi-cluster-management) |
+| **Scaling Management** | Manual CAS/NAP configuration and tuning | Platform-managed auto-scaling | [Scale Configuration](#configuring-scale-in-and-scale-out-behavior) / [CAS vs NAP](#using-cas-vs-nap-for-scaling) |
+| **Resource Quotas** | Kubernetes namespaces + resource quotas | Environment resource limits | [Namespaces & Quotas](#managing-namespaces-and-quotas-for-applications) |
+| **Node Management** | Custom node pools, VM configuration | Serverless - no node management | [Node Configuration](#custom-node-configuration-when-needed) |
+| **Health Monitoring** | Container Insights + custom monitoring setup | Built-in platform monitoring | [Health Monitoring](#monitoring-cluster-and-node-health) |
+| **Policy Management** | OPA/Gatekeeper admission controllers | Platform-enforced policies | [Admission Controllers](#management-of-admission-controllers-opagatekeeper) |
+| **Maintenance Windows** | Manual configuration and scheduling | Platform-managed maintenance | [Maintenance Windows](#selection-and-configuration-of-maintenance-windows) / [ACA Maintenance](#maintenance-windows) |
+| **Compute Management** | VM-based node pool management | Workload profiles + consumption plans | [Workload Profiles](#workload-profile-management) / [Consumption Plans](#consumption-plan-management) |
+| **Operational Overhead** | High - comprehensive control required | Minimal - platform automation | [Management Complexity](#management-complexity-comparison) |
+| **Decision Factors** | Custom requirements, full operational control | Simplified operations, reduced overhead | [Decision Framework](#decision-framework-for-management-overhead) |
+
 ## Azure Kubernetes Service (AKS) Management
 
 ### Upgrading Clusters - Control Plane and Worker Nodes

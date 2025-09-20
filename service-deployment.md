@@ -6,6 +6,19 @@ This document compares how to deploy and configure the underlying platform servi
 
 The service deployment process differs significantly between AKS and Azure Container Apps. AKS requires extensive configuration with numerous parameters for fine-grained control, while Azure Container Apps offers simplified deployment with fewer but more opinionated configuration options.
 
+## Service Deployment Comparison Matrix
+
+| Deployment Aspect | AKS | Azure Container Apps | Section Reference |
+|------------------|-----|---------------------|-------------------|
+| **Platform Deployment** | 50+ ARM attributes, complex networking | 10-15 ARM attributes, simplified config | [AKS Creation](#azure-kubernetes-service-aks-cluster-creation) / [ACA Creation](#azure-container-apps-environment-creation) |
+| **Networking Configuration** | Multiple CNI options, custom subnets, load balancers | Managed networking, VNet integration | [AKS Networking](#essential-azure-resource-manager-attributes) / [ACA Networking](#essential-azure-resource-manager-attributes-1) |
+| **Node Management** | VM size, scaling, OS configuration | Serverless, platform-managed compute | [AKS Nodes](#essential-azure-resource-manager-attributes) / [ACA Compute](#essential-azure-resource-manager-attributes-1) |
+| **Security Configuration** | Identity, RBAC, encryption, network policies | Managed identity, built-in security | [AKS Security](#essential-azure-resource-manager-attributes) / [ACA Security](#essential-azure-resource-manager-attributes-1) |
+| **Monitoring & Logging** | Container Insights, Log Analytics configuration | Built-in monitoring and logging | [AKS Monitoring](#essential-azure-resource-manager-attributes) / [ACA Monitoring](#essential-azure-resource-manager-attributes-1) |
+| **Add-ons & Extensions** | 15+ optional add-ons and integrations | Platform-integrated capabilities | [AKS Add-ons](#essential-azure-resource-manager-attributes) / [ACA Features](#essential-azure-resource-manager-attributes-1) |
+| **Configuration Complexity** | High complexity, extensive customization | Low complexity, opinionated defaults | [Complexity Comparison](#configuration-complexity-comparison) |
+| **Decision Factors** | Custom requirements, full control needed | Simplified operations, faster deployment | [Decision Framework](#decision-framework) |
+
 ## Azure Kubernetes Service (AKS) Cluster Creation
 
 AKS cluster deployment requires careful consideration of numerous Azure Resource Manager attributes. Below are the key required and optional parameters for cluster creation:

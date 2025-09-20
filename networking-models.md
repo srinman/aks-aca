@@ -6,6 +6,22 @@ This document compares the networking architectures, capabilities, and configura
 
 Networking approaches differ significantly between AKS and Azure Container Apps. AKS provides extensive networking customization options with multiple CNI choices and advanced configurations, while Azure Container Apps offers a simplified, fully managed networking experience with limited but sufficient options for most use cases.
 
+## Networking Models Comparison Matrix
+
+| Networking Feature | AKS | Azure Container Apps | Section Reference |
+|-------------------|-----|---------------------|-------------------|
+| **Pod Networking** | Multiple CNI options (Azure CNI, Kubenet, Overlay, BYOCNI) | Platform-managed pod networking | [Pod Networking](#pod-networking-management-options) |
+| **Ingress Controllers** | Multiple options (AGIC, NGINX, Traefik, Istio Gateway) | Single managed ingress solution | [Ingress Controllers](#managing-multiple-ingress-controllers) |
+| **Service Mesh** | Istio add-on with full configuration control | Built-in mTLS without full service mesh | [Service Mesh](#deploying-managed-service-mesh-istio) |
+| **Network Policies** | Kubernetes Network Policies + Cilium + Calico | Basic network isolation via NSGs | [Network Policies](#workload-segmentation-with-network-policies-and-istio) |
+| **Load Balancing** | Standard/Basic LB + Application Gateway | Managed load balancing | [Advanced Networking](#advanced-networking-capabilities) |
+| **Custom Networking** | Full CNCF project customization support | Limited customization options | [CNCF Projects](#cncf-project-customizations) |
+| **TLS Management** | Multiple cert managers (cert-manager, external) | Built-in certificate management | [TLS Certificates](#tls-certificate-management) |
+| **Traffic Management** | Advanced routing with Istio + ingress controllers | Simple traffic splitting between revisions | [Traffic Management](#blue-green-deployment-support) |
+| **Network Isolation** | Custom VNets, subnets, network policies | VNet integration with UDR/NSG support | [UDR Support](#user-defined-routes-udr-support) / [NSG Support](#custom-network-security-groups-nsg) |
+| **Internal Networking** | Full control over internal communication | Managed internal environment options | [Internal Config](#internal-environment-configuration) |
+| **Complexity** | High operational complexity, extensive options | Low complexity, managed simplicity | [Capabilities Comparison](#networking-capabilities-comparison) |
+
 ## Azure Kubernetes Service (AKS) Networking
 
 AKS provides several comprehensive options to manage pod networking, ingress, service mesh, and network segmentation with extensive customization possibilities.

@@ -6,6 +6,20 @@ This document compares the event-driven architecture and serverless computing ca
 
 Event-driven architectures and serverless patterns are increasingly important for modern applications. While both platforms support these patterns, they approach them differently - AKS through add-ons and ecosystem tools, while Azure Container Apps provides built-in serverless capabilities.
 
+## Event-Driven and Serverless Comparison Matrix
+
+| Feature | AKS | Azure Container Apps | Section Reference |
+|---------|-----|---------------------|-------------------|
+| **Event-Driven Scaling** | KEDA add-on with 60+ scalers | Built-in KEDA integration | [AKS KEDA](#keda-kubernetes-event-driven-autoscaling) / [ACA Scaling](#built-in-scaling) |
+| **Serverless Runtime** | Knative Serving add-on | Native serverless platform | [Knative Serving](#knative-serving) / [ACA Built-in](#built-in-scaling) |
+| **Event Sources** | 60+ KEDA scalers + custom scalers | Azure-native event sources | [AKS Event Sources](#event-sources-and-processing) / [ACA Event Sources](#event-source-support) |
+| **Batch Processing** | Kubernetes Jobs + KEDA | Container Apps Jobs | [AKS Jobs](#batch-processing-with-jobs) / [ACA Jobs](#container-apps-jobs) |
+| **Microservices** | Dapr add-on + service mesh | Built-in Dapr integration | [AKS Dapr](#event-sources-and-processing) / [ACA Dapr](#dapr-integration) |
+| **Cold Start Performance** | Variable (container startup time) | Optimized for fast cold starts | [Performance](#cold-start-performance) |
+| **Scaling Speed** | Configurable, KEDA-dependent | Platform-optimized scaling | [Scaling](#scaling-characteristics) |
+| **Cost Model** | Pay for nodes (minimum capacity) | Pay-per-execution + request | [Performance](#performance-characteristics) |
+| **Configuration Complexity** | High (multiple add-ons to configure) | Low (built-in capabilities) | [Best Practices](#best-practices) |
+
 ## Azure Kubernetes Service (AKS) Event-Driven & Serverless
 
 ### KEDA (Kubernetes Event Driven Autoscaling)
