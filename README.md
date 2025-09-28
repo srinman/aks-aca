@@ -181,18 +181,18 @@ The following table provides a high-level comparison of key aspects between AKS 
 | **Service Deployment** | How to deploy and configure the underlying platform service | [Service Deployment Comparison](./service-deployment.md) |
 | **Service Management** | Day-2 operations, maintenance, and platform management | [Service Management Comparison](./service-management.md) |
 | **Application Deployment** | Methods and processes for deploying applications to the platform | [Application Deployment Comparison](./application-deployment.md) |
-| **Application Management** | Managing app lifecycle, replicas, revisions, and configurations | [Application Management Comparison](./application-management.md) |
-| **Compute Selection** | Available compute options, VM types, and resource allocation | [Compute Selection Comparison](./compute-selection.md) |
+| **Application Management** | Managing app lifecycle, replicas, revisions, and configurations |  |
+| **Compute Selection** | Available compute options, VM types, and resource allocation | |
 | **Event-Driven & Serverless** | Support for event-driven architectures and serverless patterns | [Event-Driven Comparison](./event-driven-serverless.md) |
 | **Networking Models** | Platform networking, ingress, egress, and connectivity options | [Networking Comparison](./networking-models.md) |
-| **Application Networking** | Service mesh, inter-service communication, and segmentation | [Application Networking Comparison](./application-networking.md) |
-| **Managed Identities** | Authentication, authorization, and identity management | [Identity Management Comparison](./managed-identities.md) |
-| **Operating System Support** | Supported OS options and container runtime capabilities | [OS Support Comparison](./os-support.md) |
-| **Storage Options** | Persistent storage, volume types, and data management | [Storage Comparison](./storage-options.md) |
-| **Application Security** | Security controls, policies, and best practices for applications | [Application Security Comparison](./application-security.md) |
+| **Application Networking** | Service mesh, inter-service communication, and segmentation |  |
+| **Managed Identities** | Authentication, authorization, and identity management |  |
+| **Operating System Support** | Supported OS options and container runtime capabilities |  |
+| **Storage Options** | Persistent storage, volume types, and data management | |
+| **Application Security** | Security controls, policies, and best practices for applications | |
 | **Platform Security** | Infrastructure security, network controls, and compliance | [Platform Security Comparison](./platform-security.md) |
-| **Data Protection** | Backup, recovery, and business continuity capabilities | [Data Protection Comparison](./data-protection.md) |
-| **Disaster Recovery** | High availability, fault tolerance, and disaster recovery | [Disaster Recovery Comparison](./disaster-recovery.md) |
+| **Data Protection** | Backup, recovery, and business continuity capabilities |   |
+| **Disaster Recovery** | High availability, fault tolerance, and disaster recovery |   |
 
 ---
 
