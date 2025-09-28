@@ -25,23 +25,82 @@ AKS cluster deployment requires careful consideration of numerous Azure Resource
 
 ### Essential Azure Resource Manager Attributes
 
-**Subnet and Networking Configuration**
+**Advanced Networking Configuration with Multiple CNI Options**
+AKS provides extensive networking flexibility through multiple Container Networking Interface (CNI) plugins:
+
+**1. Azure CNI Overlay (Recommended)**
+- Overlay networking model with IP conservation
+- Pods get private CIDR separate from VNet subnet
+- Supports up to 250 pods per node
+- Traffic is SNAT'd when leaving the cluster
 ```json
 {
-  "type": "Microsoft.ContainerService/managedClusters",
-  "properties": {
-    "agentPoolProfiles": [{
-      "vnetSubnetID": "/subscriptions/{subscription-id}/resourceGroups/{rg}/providers/Microsoft.Network/virtualNetworks/{vnet}/subnets/{subnet}",
-      "podSubnetID": "/subscriptions/{subscription-id}/resourceGroups/{rg}/providers/Microsoft.Network/virtualNetworks/{vnet}/subnets/{pod-subnet}"
-    }],
-    "networkProfile": {
-      "networkPlugin": "azure|kubenet",
-      "networkPluginMode": "overlay",
-      "networkPolicy": "azure|calico",
-      "serviceCidr": "10.2.0.0/24",
-      "dnsServiceIP": "10.2.0.10",
-      "loadBalancerSku": "standard|basic"
-    }
+  "networkProfile": {
+    "networkPlugin": "azure",
+    "networkPluginMode": "overlay",
+    "podCidr": "10.244.0.0/16",
+    "serviceCidr": "10.2.0.0/24",
+    "dnsServiceIP": "10.2.0.10"
+  }
+}
+```
+
+**2. Azure CNI Pod Subnet (Flat Network)**
+- Separate dedicated subnets for nodes and pods
+- Direct VNet connectivity for pods
+- Pods get routable VNet IP addresses
+```json
+{
+  "agentPoolProfiles": [{
+    "vnetSubnetID": "/subscriptions/{sub}/resourceGroups/{rg}/providers/Microsoft.Network/virtualNetworks/{vnet}/subnets/{node-subnet}",
+    "podSubnetID": "/subscriptions/{sub}/resourceGroups/{rg}/providers/Microsoft.Network/virtualNetworks/{vnet}/subnets/{pod-subnet}"
+  }],
+  "networkProfile": {
+    "networkPlugin": "azure",
+    "networkPolicy": "azure|calico"
+  }
+}
+```
+
+**3. Azure CNI Node Subnet (Legacy)**
+- Nodes and pods share same subnet
+- Each pod gets VNet IP address
+- Less IP-efficient but simpler configuration
+```json
+{
+  "agentPoolProfiles": [{
+    "vnetSubnetID": "/subscriptions/{sub}/resourceGroups/{rg}/providers/Microsoft.Network/virtualNetworks/{vnet}/subnets/{subnet}"
+  }],
+  "networkProfile": {
+    "networkPlugin": "azure",
+    "serviceCidr": "10.2.0.0/24",
+    "dnsServiceIP": "10.2.0.10"
+  }
+}
+```
+
+**4. Kubenet (Legacy)**
+- Basic overlay networking
+- Manual route table management required
+- Limited scale and features
+```json
+{
+  "networkProfile": {
+    "networkPlugin": "kubenet",
+    "podCidr": "10.244.0.0/16",
+    "serviceCidr": "10.2.0.0/24",
+    "dnsServiceIP": "10.2.0.10"
+  }
+}
+```
+
+**Network Policy and Security Options**
+```json
+{
+  "networkProfile": {
+    "networkPolicy": "azure|calico",
+    "loadBalancerSku": "standard|basic",
+    "outboundType": "loadBalancer|managedNATGateway|userAssignedNATGateway|userDefinedRouting"
   }
 }
 ```
@@ -75,12 +134,19 @@ AKS cluster deployment requires careful consideration of numerous Azure Resource
 }
 ```
 
-**Node Pool SKU Selection Considerations**
+**Extensive VM SKU Support in AKS**
+AKS supports the vast majority of Azure VM SKUs across all VM families, with minimal restrictions:
+- **System node pools**: Minimum 2 vCPUs and 4GB RAM (B-series and Av1-series not recommended)
+- **User node pools**: Minimum 2 vCPUs and 2GB RAM
+- **All VM families supported**: General Purpose (D, A, B), Compute Optimized (F, FX), Memory Optimized (E, M, EC), Storage Optimized (L), GPU (NC, ND, NV, NG), FPGA (NP), and High Performance Compute (HB, HC, HX)
+
+**Popular Node Pool SKU Examples**
 - **Standard_D2s_v3**: General purpose, 2 vCPUs, 8GB RAM - suitable for light workloads
 - **Standard_D4s_v3**: General purpose, 4 vCPUs, 16GB RAM - balanced compute and memory
 - **Standard_F8s_v2**: Compute optimized, 8 vCPUs, 16GB RAM - CPU-intensive workloads
 - **Standard_E4s_v3**: Memory optimized, 4 vCPUs, 32GB RAM - memory-intensive applications
 - **Standard_L8s_v2**: Storage optimized, 8 vCPUs, 64GB RAM - high IOPS requirements
+- **Standard_NC24s_v3**: GPU-enabled, 24 vCPUs, 448GB RAM, 4x Tesla V100 - ML/AI workloads
 
 **Autoscaler Considerations for User Node Pools**
 ```json
@@ -106,20 +172,38 @@ AKS cluster deployment requires careful consideration of numerous Azure Resource
 }
 ```
 
-**CNI Model Selection for Pod-to-Pod Networking**
+**CNI Model Comparison and Selection**
+
+| **CNI Plugin** | **Network Model** | **Pod IP Source** | **Use Case** |
+|----------------|------------------|-------------------|--------------|
+| **Azure CNI Overlay** | Overlay | Private CIDR (separate from VNet) | IP conservation, max scale, most scenarios |
+| **Azure CNI Pod Subnet** | Flat | Dedicated pod subnet in VNet | Direct pod connectivity, Pod-VM communication |
+| **Azure CNI Node Subnet** | Flat | Shared node/pod subnet | Legacy, simpler config but less efficient |
+| **Kubenet** | Overlay | Private CIDR with manual routes | Basic scenarios, legacy support |
+
+**Advanced Networking Features**
 ```json
 {
   "networkProfile": {
     "networkPlugin": "azure",
     "networkPluginMode": "overlay",
-    "ebpfDataplane": "cilium"
+    "ebpfDataplane": "cilium",
+    "advancedNetworking": {
+      "observability": {
+        "enabled": true,
+        "enabledFeatures": ["NetworkPolicy", "FlowLogs", "Metrics"]
+      }
+    }
   }
 }
 ```
-- **Azure CNI**: Direct VNet integration, each pod gets VNet IP
-- **Kubenet**: NAT-based networking, route tables required
-- **Azure CNI Overlay**: Combines Azure CNI with overlay networking
-- **Cilium eBPF**: Advanced networking with eBPF data plane
+
+**Key Networking Capabilities:**
+- **Subnet Separation**: Dedicated subnets for nodes vs pods (Azure CNI Pod Subnet)
+- **IP Address Planning**: Flexible CIDR allocation and VNet integration
+- **Network Policies**: Azure or Calico for traffic segmentation
+- **eBPF Dataplane**: Cilium for advanced networking and observability
+- **Multiple CNI Options**: Choose based on IP requirements and connectivity needs
 
 **API Server Access Configuration**
 ```json
@@ -171,6 +255,54 @@ AKS cluster deployment requires careful consideration of numerous Azure Resource
         "metricLabelsAllowlist": "",
         "metricAnnotationsAllowList": ""
       }
+    }
+  }
+}
+```
+
+**Multi-Tenant Logging Flexibility**
+AKS supports advanced multi-tenant logging capabilities through Container Insights, enabling sophisticated log segregation and workspace management:
+
+**Key Multi-Tenant Scenarios:**
+- **Multitenancy**: Route container logs from specific K8s namespaces to corresponding dedicated Log Analytics workspaces
+- **Multihoming**: Send the same set of container logs from namespaces to multiple Log Analytics workspaces simultaneously
+- **Cross-Tenant Support**: Send logs to Log Analytics workspaces in different Azure tenants
+- **Namespace-based Segregation**: Configure different logging destinations per team or application namespace
+
+**Multi-Tenant Configuration Example**
+```json
+{
+  "configMapSettings": {
+    "log_collection_settings": {
+      "multi_tenancy": {
+        "enabled": true,
+        "disable_fallback_ingestion": false
+      }
+    },
+    "agent_settings": {
+      "high_log_scale": {
+        "enabled": true
+      }
+    }
+  }
+}
+```
+
+**Data Collection Rule (DCR) for Team-based Log Routing**
+```json
+{
+  "type": "Microsoft.Insights/dataCollectionRules",
+  "properties": {
+    "dataFlows": [{
+      "streams": ["Microsoft-ContainerLogV2"],
+      "destinations": ["team-workspace"],
+      "transformKql": "source | where Namespace in ('app-team-1', 'app-team-2')"
+    }],
+    "destinations": {
+      "logAnalytics": [{
+        "name": "team-workspace",
+        "workspaceResourceId": "/subscriptions/{sub}/resourceGroups/{rg}/providers/Microsoft.OperationalInsights/workspaces/{team-workspace}"
+      }]
     }
   }
 }

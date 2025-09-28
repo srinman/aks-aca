@@ -102,86 +102,16 @@ az fleet updaterun create \
 
 ### Configuring Scale-In and Scale-Out Behavior
 
-**Cluster Autoscaler Configuration**
-```bash
-# Configure cluster autoscaler with custom parameters
-az aks update \
-    --resource-group myResourceGroup \
-    --name myAKSCluster \
-    --cluster-autoscaler-profile \
-        scale-down-delay-after-add=10m \
-        scale-down-unneeded-time=10m \
-        scale-down-utilization-threshold=0.5 \
-        max-graceful-termination-sec=600 \
-        balance-similar-node-groups=false \
-        expander=least-waste
-```
-
-**Node Pool Specific Scaling**
-```bash
-# Configure individual node pool scaling
-az aks nodepool update \
-    --resource-group myResourceGroup \
-    --cluster-name myAKSCluster \
-    --name nodepool1 \
-    --enable-cluster-autoscaler \
-    --min-count 1 \
-    --max-count 10
-```
+**Cluster Autoscaler (CAS) Configuration**
+AKS provides Cluster Autoscaler with configurable parameters for scaling behavior including scale-down delays, utilization thresholds, and node selection strategies. Each node pool can have individual scaling configurations and limits.
 
 ### Using CAS vs NAP for Scaling
 
 **Cluster Autoscaler (CAS) - Standard Approach**
-```yaml
-# CAS scales based on pending pods and node utilization
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: cluster-autoscaler-status
-  namespace: kube-system
-data:
-  nodes.max: "100"
-  cores.max: "6400" 
-  memory.max: "25600Gi"
-  scale-down-enabled: "true"
-  scale-down-delay-after-add: "10m"
-  scale-down-unneeded-time: "10m"
-```
+CAS scales based on pending pods and node utilization within predefined node pools. It provides configuration options for scaling behavior, resource limits, and optimization strategies.
 
-**Node Auto Provisioning (NAP) - Advanced Scaling**
-```bash
-# Enable Node Auto Provisioning for dynamic node type selection
-az aks update \
-    --resource-group myResourceGroup \
-    --name myAKSCluster \
-    --enable-node-auto-provisioning \
-    --nap-min-cores 0 \
-    --nap-max-cores 1000 \
-    --nap-min-memory 0 \
-    --nap-max-memory 4000
-```
-
-**NAP Configuration for Workload Optimization**
-```yaml
-# Pod with specific resource requirements for NAP
-apiVersion: v1
-kind: Pod
-metadata:
-  name: gpu-workload
-spec:
-  containers:
-  - name: ml-training
-    image: tensorflow/tensorflow:latest-gpu
-    resources:
-      requests:
-        nvidia.com/gpu: 1
-        cpu: "4"
-        memory: "16Gi"
-      limits:
-        nvidia.com/gpu: 1
-        cpu: "8"
-        memory: "32Gi"
-```
+**Node Auto Provisioning (NAP) - Advanced Scaling** 
+NAP dynamically selects optimal node types based on workload requirements, automatically provisioning nodes with appropriate CPU, memory, and GPU configurations to match pod resource requests.
 
 ### Managing Namespaces and Quotas for Applications
 
