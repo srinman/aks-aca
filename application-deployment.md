@@ -14,7 +14,9 @@ Application deployment approaches differ significantly between AKS and Azure Con
 | **GitOps Tools** | Flux, ArgoCD, custom operators | GitHub Actions, Azure DevOps | [GitOps](#leveraging-gitops-tools-for-deployment) |
 | **Package Management** | Helm charts, Kustomize | ARM/Bicep templates | [Helm](#helm-chart-deployments) / [ARM/Bicep](#managing-revisions-and-traffic-with-armbicep) |
 | **Native Deployments** | Kubernetes YAML manifests | ARM/JSON templates | [K8s YAML](#native-kubernetes-yaml-deployments) / [ARM JSON](#native-azure-resource-deployment) |
+| **Resource Management** | Requests + Limits (dual configuration) | Single fixed allocation | [AKS Resources](#application-deployment-control-and-resource-management) / [ACA Resources](#application-deployment-control-and-resource-management-1) |
 | **High Availability** | Pod Disruption Budgets, anti-affinity | Platform-managed availability | [PDB](#pod-disruption-budgets-for-maintenance-management) / [Anti-affinity](#application-deployment-control-and-anti-affinity) |
+| **Zone Deployment Control** | Granular zone placement with topology constraints | Platform-managed, no visibility or control | [AKS Zones](#zone-aware-deployment-and-placement-control) / [ACA Zones](#zone-deployment-and-replica-distribution) |
 | **Stateful Workloads** | StatefulSets + persistent volumes | Limited stateful support | [StatefulSets](#statefulset-for-stateful-workloads) |
 | **System Services** | DaemonSets for node-level services | Platform-managed system services | [DaemonSets](#daemonset-for-node-level-services) |
 | **Deployment Patterns** | Blue/Green, Canary with Istio + Flagger | Traffic splitting between revisions | [Blue/Green](#bluegreen-deployment-with-services) / [Canary](#sophisticated-canary-deployment-with-istio-and-flagger) |
@@ -200,6 +202,91 @@ spec:
           periodSeconds: 5
 ```
 
+### Application Deployment Control and Resource Management
+
+**Flexible Resource Allocation with Requests and Limits**
+
+Kubernetes in AKS provides granular control over resource allocation through a dual-configuration model for CPU and memory:
+
+**Resource Requests:**
+- Define the minimum resources guaranteed for a container
+- Used by the Kubernetes scheduler to determine node placement
+- Ensure containers receive baseline resources for operation
+- Impact pod scheduling decisions and node resource availability
+
+**Resource Limits:**
+- Set maximum resource consumption caps for containers
+- Allow controlled burst capacity beyond baseline requests
+- Protect nodes from resource exhaustion by individual containers
+- Can be omitted to allow scaling up to node's available capacity
+
+**Flexible Workload Behavior:**
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: webapp-pod
+spec:
+  containers:
+  - name: webapp
+    image: webapp:latest
+    resources:
+      requests:
+        cpu: 250m      # Guaranteed minimum
+        memory: 256Mi
+      limits:
+        cpu: 1000m     # Maximum allowed (4x burst capacity)
+        memory: 512Mi  # 2x burst capacity
+```
+
+**Resource Configuration Scenarios:**
+
+1. **Guaranteed QoS (Requests = Limits):**
+```yaml
+resources:
+  requests:
+    cpu: 500m
+    memory: 512Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+```
+- Highest priority for resource allocation
+- Predictable performance, no burst capability
+- Protected from node resource pressure
+
+2. **Burstable QoS (Requests < Limits):**
+```yaml
+resources:
+  requests:
+    cpu: 250m
+    memory: 256Mi
+  limits:
+    cpu: 1000m
+    memory: 1Gi
+```
+- Baseline guarantee with burst headroom
+- Flexible resource utilization
+- Can leverage unused node capacity
+
+3. **Best Effort (No Requests or Limits):**
+```yaml
+resources: {}
+```
+- No resource guarantees
+- Lowest scheduling priority
+- Can use any available node capacity
+- First to be evicted under resource pressure
+
+**Benefits of Dual Configuration:**
+- **Operational Flexibility**: Allows workloads to burst during peak demand while maintaining baseline guarantees
+- **Resource Efficiency**: Better node utilization by allowing temporary overcommitment
+- **Cost Optimization**: Pack more workloads on nodes by leveraging burst patterns
+- **Performance Tuning**: Fine-grained control for performance-critical applications
+- **Multi-Tenant Support**: Balance resource sharing and isolation in shared clusters
+
+This dual configuration model provides the flexibility needed for diverse workload patterns, from predictable steady-state applications to variable traffic patterns requiring burst capacity.
+
 ### Pod Disruption Budgets for Maintenance Management
 
 **PDB Configuration for High Availability**
@@ -227,6 +314,8 @@ spec:
     matchLabels:
       app: api-service
 ```
+
+
 
 ### Application Deployment Control and Anti-Affinity
 
@@ -271,6 +360,128 @@ spec:
                 values:
                 - compute-optimized
 ```
+
+### Zone-Aware Deployment and Placement Control
+
+**Granular Zone Control with Topology Constraints**
+
+Kubernetes in AKS provides extensive control over availability zone placement through multiple affinity and topology mechanisms. These features enable precise control over where workloads are deployed within and across availability zones.
+
+**Zone-Specific Deployment Strategies:**
+
+1. **Deploy to Specific Zone:**
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: webapp-zone1
+spec:
+  replicas: 3
+  template:
+    spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: topology.kubernetes.io/zone
+                operator: In
+                values:
+                - eastus-1  # Deploy only to zone 1
+```
+
+2. **Distribute Across All Zones (Zone-Balanced):**
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: webapp-multi-zone
+spec:
+  replicas: 9  # 3 per zone in 3-zone region
+  template:
+    spec:
+      topologySpreadConstraints:
+      - maxSkew: 1
+        topologyKey: topology.kubernetes.io/zone
+        whenUnsatisfiable: DoNotSchedule
+        labelSelector:
+          matchLabels:
+            app: webapp
+```
+
+3. **Spread Across Zones with Pod Anti-Affinity:**
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: webapp-spread
+spec:
+  replicas: 6
+  template:
+    spec:
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchLabels:
+                app: webapp
+            topologyKey: topology.kubernetes.io/zone
+```
+
+4. **Prefer Specific Zone but Allow Others:**
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: webapp-prefer-zone
+spec:
+  replicas: 5
+  template:
+    spec:
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            preference:
+              matchExpressions:
+              - key: topology.kubernetes.io/zone
+                operator: In
+                values:
+                - eastus-1  # Prefer zone 1, but deploy to others if needed
+```
+
+**Zone Visibility and Observability:**
+
+Kubernetes provides full visibility into zone placement through:
+
+```bash
+# View which zone each pod is running in
+kubectl get pods -o wide --show-labels
+
+# Get node zone information
+kubectl get nodes -o custom-columns=NAME:.metadata.name,ZONE:.metadata.labels.'topology\.kubernetes\.io/zone'
+
+# Describe pod to see node placement
+kubectl describe pod <pod-name> | grep "topology.kubernetes.io/zone"
+
+# View zone distribution of pods
+kubectl get pods -o json | jq '.items[] | {name: .metadata.name, node: .spec.nodeName, zone: .spec.nodeAffinity}'
+```
+
+**Zone Control Benefits:**
+- **Latency Optimization**: Deploy latency-sensitive workloads to specific zones near resources
+- **Cost Optimization**: Concentrate less critical workloads in specific zones
+- **Compliance Requirements**: Meet data residency or regional compliance needs
+- **Testing Scenarios**: Validate zone failure behavior by deploying to specific zones
+- **Resource Availability**: Work around zone-specific capacity constraints
+- **Disaster Recovery**: Control active-passive patterns across zones
+
+**Advanced Zone Topology Features:**
+- **Topology Spread Constraints**: Fine-grained control over pod distribution
+- **Zone-Aware Services**: Services can route to pods in specific zones
+- **Persistent Volume Zone Affinity**: Ensure pods scheduled in same zone as their volumes
+- **Zone-Specific Node Pools**: Create node pools dedicated to specific zones
+- **Custom Zone Labels**: Apply additional zone-related metadata for complex scenarios
 
 ### StatefulSet for Stateful Workloads
 
@@ -699,6 +910,40 @@ Azure Container Apps provides simplified deployment using native Azure resources
 }
 ```
 
+### Application Deployment Control and Resource Management
+
+**Single Fixed Resource Allocation Model**
+
+In Kubernetes—including AKS—developers can specify both resource requests and limits for CPU and memory. This dual configuration enables flexible workload behavior:
+- Requests guarantee minimum resources for scheduling.
+- Limits cap maximum usage, allowing for controlled bursts.
+- If limits are omitted, containers can scale up to the node’s available capacity, offering additional headroom.  
+
+In contrast, Azure Container Apps enforces a single resource allocation per container, combining CPU and memory into a fixed profile. This design choice simplifies deployment but removes the buffer flexibility seen in Kubernetes. It’s an opinionated implementation aimed at protecting workloads from noisy neighbors and ensuring consistent performance in a multi-tenant environment.
+
+ACA trades granular control for operational safety and simplicity — ideal for managed, serverless scenarios.
+
+
+```yaml
+"properties": {
+  "template": {
+    "containers": [
+      {
+        "resources": {
+          "cpu": 0.5,
+          "memory": "1Gi"
+        }
+      }
+    ]
+  }
+}
+``` 
+
+
+For reference check this link:   
+https://learn.microsoft.com/en-us/rest/api/resource-manager/containerapps/container-apps/get?view=rest-resource-manager-containerapps-2024-03-01&tabs=HTTP&preserve-view=true#containerresources  
+
+
 ### Managing Revisions and Traffic with ARM/Bicep
 
 **Bicep Template for Revision Management**
@@ -889,6 +1134,81 @@ resource containerApp 'Microsoft.App/containerApps@2023-05-01' = {
   }
 }
 ```
+
+### Zone Deployment and Replica Distribution
+
+**Platform-Managed Zone Distribution**
+
+Azure Container Apps handles availability zone deployment automatically at the environment level, with no visibility or control over specific zone placement for individual replicas.
+
+**Environment-Level Zone Redundancy:**
+
+```json
+{
+  "type": "Microsoft.App/managedEnvironments",
+  "properties": {
+    "zoneRedundant": true,
+    "vnetConfiguration": {
+      "infrastructureSubnetId": "/subscriptions/{sub}/resourceGroups/{rg}/providers/Microsoft.Network/virtualNetworks/{vnet}/subnets/{subnet}",
+      "internal": false
+    }
+  }
+}
+```
+
+**Key Characteristics:**
+- **Environment-Level Configuration**: Zone redundancy is configured at the environment level, not per application
+- **Automatic Distribution**: Platform automatically distributes replicas across available zones
+- **Minimum Replica Recommendation**: At least 3 replicas recommended to take advantage of 3-zone regions
+- **No Zone Visibility**: No API, CLI, or portal capability to identify which zone a specific replica is running in
+- **No Zone Control**: Cannot specify which zone(s) to deploy replicas to
+- **No Zone Selection**: Cannot force deployment to specific zones or exclude specific zones
+- **Platform-Optimized**: Platform makes all zone placement decisions based on capacity and load balancing
+
+**Zone Redundancy Requirements:**
+```bash
+# Enable zone redundancy during environment creation
+az containerapp env create \
+  --name myenv \
+  --resource-group myResourceGroup \
+  --location eastus \
+  --infrastructure-subnet-resource-id $SUBNET_ID \
+  --zone-redundant
+
+# Verify zone redundancy (returns zoneRedundant: true/false)
+az containerapp env show \
+  --name myenv \
+  --resource-group myResourceGroup \
+  --query zoneRedundant
+```
+
+**Limitations:**
+- **No Zone Queries**: Cannot query which zone a replica is running in
+- **No Zone Filtering**: Cannot filter traffic to replicas in specific zones
+- **No Zone Affinity**: Cannot implement zone-aware routing or co-location strategies
+- **No Zone Visibility in Logs**: Application logs don't include zone information
+- **No Zone-Specific Deployments**: Cannot implement zone-specific configurations or testing
+- **Cannot Migrate**: Existing non-zone-redundant environments cannot be converted to zone-redundant
+
+**High Availability Behavior:**
+- When zone redundancy is enabled, replicas are automatically distributed across zones
+- If a zone failure occurs, traffic automatically routes to replicas in remaining zones
+- Platform manages all zone failover and recovery
+- Session affinity is lost during zone failover (clients route to new replicas)
+- No mechanism to prefer or pin traffic to specific zones
+
+**Comparison to AKS:**
+While AKS provides granular zone control through topology constraints, node affinity, and zone visibility APIs, Azure Container Apps abstracts all zone management into a simple boolean flag (`zoneRedundant: true/false`). This design choice prioritizes simplicity and platform-managed reliability over fine-grained control and observability.
+
+**When Zone Opacity Matters:**
+- **Latency-sensitive applications**: Cannot co-locate with resources in same zone
+- **Data residency requirements**: Cannot guarantee data stays in specific zone
+- **Cost optimization strategies**: Cannot concentrate workloads in specific zones
+- **Testing zone failures**: Cannot simulate zone-specific failure scenarios
+- **Compliance validation**: Cannot prove which zone contains data/processing
+- **Troubleshooting**: Cannot correlate zone-specific infrastructure issues with replica behavior
+
+Azure Container Apps' zone management model trades operational control for simplicity, making it ideal for workloads that don't require zone-aware architecture decisions.
 
 ### Sticky Sessions Support
 

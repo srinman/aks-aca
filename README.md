@@ -215,6 +215,7 @@ The following table provides a high-level comparison of key aspects between AKS 
 |------------|-----------------|-------------------------|
 | **Service Deployment** | How to deploy and configure the underlying platform service | [Service Deployment Comparison](./service-deployment.md) |
 | **Service Management** | Day-2 operations, maintenance, and platform management | [Service Management Comparison](./service-management.md) |
+| **Platform Scaling** | Scaling strategies, autoscaling capabilities, and resource optimization | [AKS Scaling Deep Dive](https://github.com/srinman/aks-scaling) |
 | **Application Deployment** | Methods and processes for deploying applications to the platform | [Application Deployment Comparison](./application-deployment.md) |
 | **Application Management** | Managing app lifecycle, replicas, revisions, and configurations |  |
 | **Compute Selection** | Available compute options, VM types, and resource allocation | |

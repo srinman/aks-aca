@@ -19,6 +19,7 @@ Service management encompasses ongoing operational tasks required to maintain he
 | **Policy Management** | OPA/Gatekeeper admission controllers | Platform-enforced policies | [Admission Controllers](#management-of-admission-controllers-opagatekeeper) |
 | **Maintenance Windows** | Manual configuration and scheduling | Platform-managed maintenance | [Maintenance Windows](#selection-and-configuration-of-maintenance-windows) / [ACA Maintenance](#maintenance-windows) |
 | **Compute Management** | VM-based node pool management | Workload profiles + consumption plans | [Workload Profiles](#workload-profile-management) / [Consumption Plans](#consumption-plan-management) |
+| **Support Model** | Platform team-centric with Microsoft escalation | Direct Microsoft support for all platform issues | [Support Models](#support-models-and-platform-team-requirements) |
 | **Operational Overhead** | High - comprehensive control required | Minimal - platform automation | [Management Complexity](#management-complexity-comparison) |
 | **Decision Factors** | Custom requirements, full operational control | Simplified operations, reduced overhead | [Decision Framework](#decision-framework-for-management-overhead) |
 
@@ -435,6 +436,76 @@ For **consumption-based workloads**, the platform provides automatic scaling wit
 - **Resource Right-sizing**: Platform optimizes CPU and memory allocation
 - **Cold Start Optimization**: Managed by platform for fastest startup times
 - **Cost Optimization**: Automatic scale-to-zero during idle periods
+
+## Support Models and Platform Team Requirements
+
+### AKS: Platform Team-Centric Support Model
+
+In AKS environments, organizations typically establish a dedicated platform team responsible for first-level and often advanced-level support before engaging Microsoft support for platform issues. This support model presents both advantages and challenges depending on organizational structure and capabilities.
+
+**When Platform Teams Provide Value:**
+- **Deep Platform Knowledge**: Organizations with dedicated Kubernetes subject matter experts (SMEs) benefit from having engineers who understand the specific configurations, customizations, and architectural decisions unique to their environment
+- **Faster Issue Resolution**: Platform teams familiar with the cluster architecture can quickly identify and resolve common issues without external escalation
+- **Custom Solutions**: Advanced Kubernetes engineers can implement custom solutions, operators, and troubleshooting approaches tailored to organizational needs
+- **Context Preservation**: Platform teams maintain institutional knowledge about deployment patterns, networking decisions, and integration points
+- **Immediate Availability**: Internal teams can provide immediate response without dependency on external support tickets
+
+**Potential Challenges:**
+- **Staffing Requirements**: Organizations must hire, train, and retain skilled Kubernetes engineers with deep platform expertise
+- **Skill Gap Risk**: Insufficient platform team expertise can create bottlenecks when complex issues arise, potentially delaying resolution
+- **Organizational Dependency**: Application teams become dependent on platform team availability and responsiveness
+- **Knowledge Silos**: Concentrated expertise in a small team can create single points of failure
+- **Operational Overhead**: Platform teams require ongoing training, documentation, and knowledge management processes
+
+**Support Escalation Path:**
+AKS issues typically follow this escalation pattern:
+1. Application team identifies platform-related issue
+2. Platform team performs initial investigation and troubleshooting
+3. Platform team attempts resolution using Kubernetes expertise and Azure documentation
+4. If unresolved, platform team engages Microsoft Azure Support with detailed diagnostics
+5. Microsoft support works with platform team to resolve infrastructure or service issues
+
+### Azure Container Apps: Direct Microsoft Support Model
+
+Azure Container Apps minimizes the requirement for a dedicated platform team by providing direct access to Microsoft support for all platform-related issues. This fundamentally changes the operational support model and reduces organizational dependencies.
+
+**Best-in-Class Support Access:**
+- **Direct Microsoft Engagement**: Platform issues are immediately escalated to Microsoft support teams without internal intermediaries
+- **Reduced Staffing Needs**: Organizations require minimal or no dedicated platform engineering expertise for day-to-day operations
+- **Consistent Support Quality**: Microsoft support provides standardized expertise across all customer environments
+- **Faster Resolution for Complex Issues**: Deep platform issues are handled directly by engineers who built and maintain the service
+- **No Knowledge Gaps**: Eliminates risk of insufficient internal platform expertise blocking issue resolution
+
+**Operational Efficiency:**
+- **Simplified Support Process**: Application teams can directly engage Microsoft support when platform issues occur
+- **Lower Operational Overhead**: No need to maintain internal Kubernetes expertise for platform management
+- **Predictable Support Costs**: Support costs are included in Azure support plans rather than requiring dedicated staff
+- **Scalable Model**: Support quality doesn't depend on internal team size or expertise level
+
+**Support Interaction Pattern:**
+Azure Container Apps issues typically follow this streamlined pattern:
+1. Application team or operations identifies platform-related issue
+2. Team engages Microsoft Azure Support directly with issue details
+3. Microsoft support investigates using platform telemetry and diagnostics
+4. Resolution provided by Microsoft with minimal customer platform expertise required
+
+### Comparative Analysis
+
+**Platform Team Investment:**
+- **AKS**: Requires significant investment in platform engineering teams with deep Kubernetes and Azure expertise
+- **ACA**: Minimal platform team requirement; focus shifts to application development and support
+
+**Operational Model:**
+- **AKS**: Internal platform teams provide primary support and customization capabilities
+- **ACA**: Microsoft provides comprehensive platform support with minimal customer involvement
+
+**Decision Considerations:**
+Organizations should evaluate their support model preference based on:
+- **Existing Kubernetes Expertise**: Organizations with strong Kubernetes talent may prefer AKS's platform team model
+- **Staffing Constraints**: Organizations unable to hire or retain Kubernetes experts benefit from ACA's Microsoft-direct support
+- **Control vs Simplicity**: Some organizations value the control and customization that platform teams enable; others prefer simplified operations
+- **Support Response Time**: Consider whether internal platform teams can provide faster response than Microsoft support for your specific needs
+- **Total Cost of Ownership**: Factor in platform team salaries, training, and overhead when comparing operational costs
 
 ## Management Complexity Comparison
 
